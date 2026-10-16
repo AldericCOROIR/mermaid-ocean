@@ -6,7 +6,10 @@ import { writeFileSync } from 'fs';
 const out = process.argv[2] || 'shots';
 const names = process.argv.slice(3).length ? process.argv.slice(3) : ['city', 'reef', 'kelp', 'trench', 'mermaid', 'palace'];
 const extra = process.env.SHOT_QS || '';
-const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await chromium.launch({
+  ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}),
+  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+});
 const [vw, vh] = (process.env.VIEW || '1280,720').split(',').map(Number);
 const page = await browser.newPage({ viewport: { width: vw, height: vh } });
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log('[page]', m.text().slice(0, 400)); });

@@ -60,8 +60,8 @@ const brush = new Brushwork();
 brush.applyTo(world.group);
 brush.applyTo(city.group);
 const projection = new PaintProjection(renderer, scene, PAINT_VIEWS);
-projection.applyTo(world.group);
-projection.applyTo(city.group);
+projection.applyTo(world.group, 'world');
+projection.applyTo(city.group, 'castle');
 projection.load();
 const creatures = spawnCreatures(scene);
 const player = new Player(scene, camera);
@@ -155,12 +155,16 @@ $('btnStart').addEventListener('click', () => {
 
 // ---------- screenshot presets (used by tools/shoot.mjs) ----------
 const SHOTS = {
-  city: { p: [6, 14, -60], yaw: Math.PI + 0.1, pitch: 0.05, dist: 9 },
+  city: { p: [0, 16, -35], yaw: Math.PI, pitch: 0.12, dist: 9 },
   reef: { p: [WORLD.reefPos.x - 6, groundHeight(WORLD.reefPos.x - 6, WORLD.reefPos.z + 10) + 4, WORLD.reefPos.z + 10], yaw: Math.PI * 0.85, pitch: -0.18, dist: 7 },
   kelp: { p: [WORLD.kelpPos.x + 8, 10, WORLD.kelpPos.z + 5], yaw: -Math.PI * 0.6, pitch: 0.15, dist: 7 },
   trench: { p: [WORLD.trenchPos.x - 10, groundHeight(WORLD.trenchPos.x - 10, WORLD.trenchPos.z - 30) + 6, WORLD.trenchPos.z - 30], yaw: 0.2, pitch: -0.35, dist: 8 },
   mermaid: { p: [10, 18, 40], yaw: Math.PI * 0.75, pitch: 0.0, dist: 4.2, swim: true },
   palace: { p: [0, 7, -110], yaw: Math.PI, pitch: 0.18, dist: 7 },
+  court: { p: [0, 9, -115], yaw: Math.PI, pitch: 0.05, dist: 7 },
+  hall: { p: [0, 6, -180], yaw: Math.PI, pitch: 0.04, dist: 6 },
+  library: { p: [-36, 6, -181], yaw: Math.PI, pitch: 0.03, dist: 5 },
+  music: { p: [36, 6, -181], yaw: Math.PI, pitch: 0.03, dist: 5 },
   face: { p: [10, 18, 40], yaw: Math.PI * 0.75, pitch: 0.05, dist: 3.6, face: true },
   city2: { p: [-10, 11, -72], yaw: Math.PI - 0.35, pitch: 0.1, dist: 9 },
   reef2: { p: [WORLD.reefPos.x + 4, groundHeight(WORLD.reefPos.x + 4, WORLD.reefPos.z + 16) + 5, WORLD.reefPos.z + 16], yaw: Math.PI * 1.0, pitch: -0.15, dist: 7 },
@@ -214,6 +218,7 @@ function frame() {
   scene.fog.density = 0.004 + depthY * 0.004;
   hemi.intensity = 3.5 - depthY * 1.4;
 
+  projection.updateActive(camera.position);
   post.render(scene, camera, player.focusDist, depthY, elapsed);
 
   // adaptive quality: step down if the phone struggles
@@ -237,4 +242,4 @@ projection.bakeDepth([world.group, city.group]);
 scene.children.forEach((o) => { if (o !== world.group && o !== city.group) brush.applyTo(o, true); });
 document.getElementById('loading').classList.add('hidden');
 requestAnimationFrame(frame);
-window.__game = { player, story, camera, settings };
+window.__game = { player, story, camera, settings, city };

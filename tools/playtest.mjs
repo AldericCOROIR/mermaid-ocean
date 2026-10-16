@@ -1,6 +1,9 @@
 // Smoke test: start the game, swim forward with the keyboard, screenshot the HUD.
 import { chromium } from 'playwright';
-const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await chromium.launch({
+  ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}),
+  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+});
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, hasTouch: true });
 let errors = 0;
 page.on('pageerror', (e) => { errors++; console.log('[pageerror]', e.message); });

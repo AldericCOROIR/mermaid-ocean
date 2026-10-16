@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { WORLD, groundHeight, rand, rr, pick, glowTexture, bubbleTexture, fbm, canvasTexture } from './util.js';
 import { merge, mat, segment, lumpify, paintMat, withCaustics, withSway, inject, shared, CAUSTIC_GLSL } from './geom.js';
 
-export const colliders = []; // { x, z, r, top } vertical cylinders the player can't enter
+export const colliders = []; // vertical cylinders or axis-aligned wall boxes
 
 export function buildWorld(scene, quality) {
   const world = new THREE.Group();
@@ -156,7 +156,7 @@ function scatter(count, center, radius, minDist = 0, avoidCity = true) {
     const a = rand() * Math.PI * 2, r = Math.sqrt(rand()) * radius;
     const x = center.x + Math.cos(a) * r, z = center.z + Math.sin(a) * r;
     if (Math.abs(x) > WORLD.size / 2 - 10 || Math.abs(z) > WORLD.size / 2 - 10) continue;
-    if (avoidCity && Math.hypot(x - WORLD.cityPos.x, z - WORLD.cityPos.z) < 70) continue;
+    if (avoidCity && Math.hypot(x - WORLD.cityPos.x, z - WORLD.cityPos.z) < 110) continue;
     if (Math.hypot(x - WORLD.start.x, z - WORLD.start.z) < minDist) continue;
     pts.push(new THREE.Vector3(x, groundHeight(x, z), z));
   }
@@ -509,6 +509,16 @@ function buildBubbleVents(world) {
 export function collide(pos, radius = 1) {
   for (const c of colliders) {
     if (pos.y > c.top + radius) continue;
+    if (c.hw !== undefined) {
+      const dx = pos.x - c.x, dz = pos.z - c.z;
+      const px = c.hw + radius - Math.abs(dx);
+      const pz = c.hd + radius - Math.abs(dz);
+      if (px > 0 && pz > 0) {
+        if (px < pz) pos.x += (dx < 0 ? -1 : 1) * px;
+        else pos.z += (dz < 0 ? -1 : 1) * pz;
+      }
+      continue;
+    }
     const dx = pos.x - c.x, dz = pos.z - c.z;
     const d = Math.hypot(dx, dz), min = c.r + radius;
     if (d < min && d > 0.0001) { pos.x = c.x + (dx / d) * min; pos.z = c.z + (dz / d) * min; }

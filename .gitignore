@@ -1,4 +1,5 @@
 node_modules/
+__pycache__/
 shots/
 projtest*/
 .DS_Store

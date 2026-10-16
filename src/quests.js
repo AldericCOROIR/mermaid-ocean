@@ -133,7 +133,13 @@ export class Story {
     // swimming citizens without dialogue
     this.addNPC('citizen', new MerModel(PALETTES.pearl), S.citizens[1]);
     this.addNPC('citizen', new MerModel(PALETTES.marina), S.citizens[2]);
-    const mamaPos = S.queen.clone().add(new THREE.Vector3(-12, 0, 6));
+    for (const a of S.activities) {
+      const n = this.addNPC('activity', new MerModel(PALETTES[a.color]), a.pos, false);
+      n.activity = a.kind;
+    }
+    S.seahorses.forEach((p, i) =>
+      this.addNPC('ambientSeahorse', { root: seahorseModel(i ? 0xffc784 : 0x9be6ff, 1.6) }, p, false));
+    const mamaPos = S.garden;
     this.mama = this.addNPC('mama', { root: seahorseModel(0xff9fcf, 2.2) }, mamaPos);
     const kp = WORLD.kelpPos;
     this.baby = this.addNPC('baby', { root: seahorseModel(0xffd0ea, 0.9) }, new THREE.Vector3(kp.x + 10, groundHeight(kp.x + 10, kp.z - 15) + 4, kp.z - 15));
@@ -306,6 +312,13 @@ export class Story {
         n.root.position.set(n.home.x + Math.cos(n.t * 0.2) * 8, n.home.y + Math.sin(n.t * 0.5) * 1.5, n.home.z + Math.sin(n.t * 0.2) * 8);
         n.root.rotation.y = -n.t * 0.2;
         n.model.update(dt, 0.4, 1);
+      } else if (n.id === 'activity') {
+        const r = n.activity === 'court' ? 4 : n.activity === 'garden' ? 2.5 : 0.8;
+        n.root.position.set(n.home.x + Math.cos(n.t * 0.65) * r,
+          n.home.y + Math.sin(n.t * 1.4) * 0.5,
+          n.home.z + Math.sin(n.t * 0.65) * r);
+        n.root.rotation.y = n.activity === 'court' ? -n.t * 0.65 : Math.sin(n.t * 0.7) * 0.6;
+        n.model.update(dt, n.activity === 'court' ? 0.35 : 0.1, n.activity === 'court' ? 0.8 : 0.25);
       } else if (n.model.update) {
         n.model.update(dt, 0, 0);
       } else {
@@ -318,7 +331,7 @@ export class Story {
         n.root.rotation.y += dd * Math.min(1, dt * 3);
       }
       const r = n.id === 'queen' ? 7 : n.id === 'mama' || n.id === 'shelly' ? 6 : 4.5;
-      if (n.id !== 'citizen' && d < r && d < nd) { nearest = n; nd = d; }
+      if (!['citizen', 'activity', 'ambientSeahorse'].includes(n.id) && d < r && d < nd) { nearest = n; nd = d; }
       if (d > r + 3) this.greeted.delete(n);
       if (d < 10 && n.model instanceof MerModel) this.befriend(n.id === 'guard' ? 'guard' : 'mermaid', n.root.position);
     }

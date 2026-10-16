@@ -628,6 +628,10 @@ export function spawnCreatures(scene) {
   schools.push(new FishSchool(scene, 'tang', 30, new THREE.Vector3(20, 0, 40), 40, 16));
   schools.push(new FishSchool(scene, 'yellow', 40, new THREE.Vector3(-80, 0, -20), 45, 14));
   schools.push(new FishSchool(scene, 'angel', 18, WORLD.cityPos, 55, 12));
+  schools.push(new FishSchool(scene, 'yellow', 12,
+    new THREE.Vector3(WORLD.cityPos.x, 0, WORLD.cityPos.z + 31), 10, 8));
+  schools.push(new FishSchool(scene, 'angel', 10,
+    new THREE.Vector3(WORLD.cityPos.x, 0, WORLD.cityPos.z - 30), 6, 8));
   schools.push(new FishSchool(scene, 'clown', 20, new THREE.Vector3(-20, 0, 60), 18, 8));
   list.push(new Whale(scene));
   list.push(new Dolphin(scene, 0), new Dolphin(scene, 0.25));

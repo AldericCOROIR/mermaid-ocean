@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { inject } from './geom.js';
 
-const DEPTH_SIZE = 1024;
+const DEPTH_SIZE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 768 : 1024;
 
 export class PaintProjection {
   constructor(renderer, scene, views) {
@@ -57,6 +57,13 @@ export class PaintProjection {
     });
   }
   update(pr) { pr.uniforms.on.value = pr.ready.tex && pr.ready.depth ? 1 : 0; }
+  updateActive(cameraPos) {
+    for (const pr of this.projectors) {
+      const range = pr.name.startsWith('castle_') ? 65 : 115;
+      pr.uniforms.on.value = pr.ready.tex && pr.ready.depth &&
+        cameraPos.distanceToSquared(pr.cam.position) < range * range ? 1 : 0;
+    }
+  }
 
   // Render each projector's depth from only the static world (no fish, no mermaids).
   bakeDepth(staticRoots) {
@@ -84,12 +91,12 @@ export class PaintProjection {
   }
 
   // Add the projection to a static-world material.
-  apply(material) {
-    const N = this.projectors.length;
+  apply(material, projectors = this.projectors) {
+    const N = projectors.length;
     const uniforms = { uPaintAmt: this.amount, uPNear: this.near, uPFar: this.far };
     let head = 'uniform float uPaintAmt; uniform float uPNear; uniform float uPFar;\n';
     let body = '';
-    this.projectors.forEach((pr, i) => {
+    projectors.forEach((pr, i) => {
       uniforms[`uPM${i}`] = pr.uniforms.M; uniforms[`uPP${i}`] = pr.uniforms.P;
       uniforms[`uPT${i}`] = pr.uniforms.T; uniforms[`uPD${i}`] = pr.uniforms.D; uniforms[`uPOn${i}`] = pr.uniforms.on;
       head += `uniform mat4 uPM${i}; uniform vec3 uPP${i}; uniform sampler2D uPT${i}; uniform sampler2D uPD${i}; uniform float uPOn${i};\n`;
@@ -154,6 +161,9 @@ export class PaintProjection {
     let head = 'uniform float uPaintAmt; uniform float uPNear; uniform float uPFar;\n';
     let body = '';
     this.projectors.forEach((pr, i) => {
+      // Castle plates paint masonry and floor. Their bright painted water is
+      // viewpoint-specific and would form a rectangle on the open-water dome.
+      if (pr.name === 'city' || pr.name === 'palace' || pr.name.startsWith('castle_')) return;
       u[`uPM${i}`] = pr.uniforms.M; u[`uPP${i}`] = pr.uniforms.P; u[`uPT${i}`] = pr.uniforms.T;
       u[`uPD${i}`] = pr.uniforms.D; u[`uPOn${i}`] = pr.uniforms.on;
       head += `uniform mat4 uPM${i}; uniform vec3 uPP${i}; uniform sampler2D uPT${i}; uniform sampler2D uPD${i}; uniform float uPOn${i};\n`;
@@ -193,7 +203,13 @@ export class PaintProjection {
     material.needsUpdate = true;
   }
 
-  applyTo(root) {
+  applyTo(root, zone = null) {
+    // Keep mobile shader sampler counts below WebGL's common 16-unit limit.
+    const views = zone === 'castle'
+      ? this.projectors.filter((pr) => pr.name === 'city' || pr.name === 'palace' || pr.name.startsWith('castle_'))
+      : zone === 'world'
+        ? this.projectors.filter((pr) => !['city', 'palace'].includes(pr.name) && !pr.name.startsWith('castle_'))
+        : this.projectors;
     const seen = new Set();
     root.traverse((o) => {
       if (!o.isMesh || !o.material || seen.has(o.material)) return;
@@ -202,7 +218,7 @@ export class PaintProjection {
       if (o.userData.surface) { seen.add(m); this.applySky(m, 'vW - cameraPosition', true); return; }
       if (m.isShaderMaterial || m.isMeshBasicMaterial || m.blending === THREE.AdditiveBlending) return;
       seen.add(m);
-      this.apply(m);
+      this.apply(m, views);
     });
   }
 }

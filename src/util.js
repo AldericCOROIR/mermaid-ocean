@@ -51,7 +51,7 @@ export function groundHeight(x, z) {
   const r = Math.hypot(x, z);
   h += THREE.MathUtils.smoothstep(r, 170, 260) * 55; // rim mountains
   const dc = Math.hypot(x - WORLD.cityPos.x, z - WORLD.cityPos.z);
-  const plaza = 1 - THREE.MathUtils.smoothstep(dc, 40, 85);
+  const plaza = 1 - THREE.MathUtils.smoothstep(dc, 110, 130);
   h = THREE.MathUtils.lerp(h, -2, plaza);
   const dt = Math.hypot((x - WORLD.trenchPos.x) * 0.7, z - WORLD.trenchPos.z);
   h -= (1 - THREE.MathUtils.smoothstep(dt, 10, 55)) * 26;
