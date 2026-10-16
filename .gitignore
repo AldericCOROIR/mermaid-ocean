@@ -1,5 +1,6 @@
 node_modules/
 __pycache__/
 shots/
+shots_clean/
 projtest*/
 .DS_Store

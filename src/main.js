@@ -169,6 +169,7 @@ const SHOTS = {
   city2: { p: [-10, 11, -72], yaw: Math.PI - 0.35, pitch: 0.1, dist: 9 },
   reef2: { p: [WORLD.reefPos.x + 4, groundHeight(WORLD.reefPos.x + 4, WORLD.reefPos.z + 16) + 5, WORLD.reefPos.z + 16], yaw: Math.PI * 1.0, pitch: -0.15, dist: 7 },
   citytop: { p: [12, 26, -112], yaw: Math.PI + 0.2, pitch: -0.3, dist: 9 },
+  overview: { p: [0, 8, -75], yaw: Math.PI, pitch: -0.25, dist: 8 },
   start: { p: [WORLD.start.x, WORLD.start.y, WORLD.start.z], yaw: Math.PI, pitch: -0.12, dist: 7 },
 };
 let shotFrames = 0;
@@ -206,6 +207,13 @@ function frame() {
   if (SHOT && SHOTS[SHOT]?.swim) { player.velocity.set(Math.sin(player.facing) * 6, 0.5, Math.cos(player.facing) * 6); }
   player.update(dt, playing || SHOT ? ctl : shotControls, !playing && !SHOT);
   if (SHOT && SHOTS[SHOT]?.swim) player.position.set(...SHOTS[SHOT].p);
+  if (SHOT === 'overview') {
+    camera.position.set(0, 95, -20);
+    camera.lookAt(WORLD.cityPos.x, 8, WORLD.cityPos.z);
+    camera.fov = 56;
+    camera.updateProjectionMatrix();
+    world.group.traverse((o) => { if (o.userData.surface) o.visible = false; });
+  }
   world.update(dt, elapsed, camera);
   creatures.update(dt, elapsed, player);
   if (playing) story.update(dt, elapsed, controls);
@@ -216,6 +224,7 @@ function frame() {
   fogC.copy(FOG_SHALLOW).lerp(FOG_DEEP, depthY);
   scene.fog.color.copy(fogC);
   scene.fog.density = 0.004 + depthY * 0.004;
+  if (SHOT === 'overview') scene.fog.density = 0.001;
   hemi.intensity = 3.5 - depthY * 1.4;
 
   projection.updateActive(camera.position);

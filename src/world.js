@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { WORLD, groundHeight, rand, rr, pick, glowTexture, bubbleTexture, fbm, canvasTexture } from './util.js';
 import { merge, mat, segment, lumpify, paintMat, withCaustics, withSway, inject, shared, CAUSTIC_GLSL } from './geom.js';
 
-export const colliders = []; // vertical cylinders or axis-aligned wall boxes
+export const colliders = []; // vertical cylinders or wall boxes, optionally rotated
 
 export function buildWorld(scene, quality) {
   const world = new THREE.Group();
@@ -511,11 +511,15 @@ export function collide(pos, radius = 1) {
     if (pos.y > c.top + radius) continue;
     if (c.hw !== undefined) {
       const dx = pos.x - c.x, dz = pos.z - c.z;
-      const px = c.hw + radius - Math.abs(dx);
-      const pz = c.hd + radius - Math.abs(dz);
+      const cs = Math.cos(c.yaw || 0), sn = Math.sin(c.yaw || 0);
+      let lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
+      const px = c.hw + radius - Math.abs(lx);
+      const pz = c.hd + radius - Math.abs(lz);
       if (px > 0 && pz > 0) {
-        if (px < pz) pos.x += (dx < 0 ? -1 : 1) * px;
-        else pos.z += (dz < 0 ? -1 : 1) * pz;
+        if (px < pz) lx += (lx < 0 ? -1 : 1) * px;
+        else lz += (lz < 0 ? -1 : 1) * pz;
+        pos.x = c.x + lx * cs + lz * sn;
+        pos.z = c.z - lx * sn + lz * cs;
       }
       continue;
     }

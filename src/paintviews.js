@@ -1,8 +1,8 @@
-// Exact cameras for the painted plates. Castle v2 captures live in painted/castle_cams.json.
+// Exact cameras for the painted plates. Castle v3 captures live in painted/castle_cams_v3.json.
 export const PAINT_VIEWS = [
  {
   "name": "city",
-  "url": "assets/paint/castle_gate_v2.jpg",
+  "url": "assets/paint/castle_gate_v3.jpg",
   "cam": {
    "p": [
     0,
@@ -78,12 +78,12 @@ export const PAINT_VIEWS = [
  },
  {
   "name": "palace",
-  "url": "assets/paint/castle_palace_v2.jpg",
+  "url": "assets/paint/castle_palace_v3.jpg",
   "cam": {
    "p": [
     -0.0,
     7.2468,
-    -103.1131
+    -102.8131
    ],
    "q": [
     0.047265,

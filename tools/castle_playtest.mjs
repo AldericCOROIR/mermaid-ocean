@@ -19,7 +19,7 @@ const routes = await page.evaluate(async () => {
   const { city } = window.__game;
   const C = WORLD.cityPos;
   const y = groundHeight(C.x, C.z) + 4.5;
-  const minX = -84, minZ = -76, step = 2, nx = 85, nz = 80;
+  const minX = -90, minZ = -86, step = 2, nx = 91, nz = 91;
   const key = (ix, iz) => iz * nx + ix;
   const pass = (ix, iz) => {
     const x = minX + ix * step, z = minZ + iz * step;
@@ -28,7 +28,7 @@ const routes = await page.evaluate(async () => {
     return Math.hypot(p.x - C.x - x, p.z - C.z - z) < 0.05;
   };
   const visited = new Int32Array(nx * nz).fill(-1);
-  const sx = Math.round((0 - minX) / step), sz = Math.round((80 - minZ) / step);
+  const sx = Math.round((0 - minX) / step), sz = Math.round((88 - minZ) / step);
   const queue = [key(sx, sz)];
   visited[queue[0]] = 0;
   for (let head = 0; head < queue.length; head++) {
@@ -43,8 +43,8 @@ const routes = await page.evaluate(async () => {
     }
   }
   const targets = {
-    courtyard: [0, 30], queen: [0, -48], library: [-36, -31],
-    music: [36, -31], garden: [62, -48], westMarket: [-43, 41],
+    courtyard: [0, 48], fountain: [13, 30], queen: [0, -48], library: [-36, -31],
+    music: [36, -31], garden: [56, -32], westMarket: [-39, 40],
   };
   const result = {};
   for (const [name, [x, z]] of Object.entries(targets)) {

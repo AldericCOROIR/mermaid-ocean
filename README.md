@@ -23,7 +23,7 @@ Controls: left thumb = floating joystick, drag anywhere else to look around, ⬆
 ## What's inside
 
 - **World** (`src/world.js`): seabed with dancing caustics, kelp forest, coral reef (branch, brain, lace-fan, tube, table corals, anemones), rock arch, glowing crystal trench, light shafts, shimmering surface, marine snow, bubble vents.
-- **Coralia, the mermaid castle** (`src/city.js`): a wide walled district with an open gate, nine outer watchtowers, a market and inner court, gardens, shell homes, a fountain, and a palace with an enterable throne hall, library aisle, and music gallery. The queen now waits inside. Mermaids tend the stalls and gardens, browse the library, and gather around the court; seahorses and fish swim through the district.
+- **Coralia, the mermaid castle** (`src/city.js`): an oval walled city with a walk-through shell portal, thirteen outer shell towers, twelve shell homes, ten striped open-front shops, a pearl clam fountain, gardens, and a domed palace with an enterable throne hall, library aisle, and music gallery. The queen waits inside. Mermaids tend the stalls and gardens, browse the library, and gather around the court; seahorses and fish swim through the district.
 - **Characters** (`src/mermaid.js`): procedural chibi mermaids & merman guards with swimming tail animation.
 - **Creatures** (`src/creatures.js`): fish schools (clownfish, blue tang, sunny fish, angelfish) that scatter around you, whale, dolphins that leap, seahorses, crabs, jellyfish, sea turtle, manta rays, pufferfish that puff up, octopus.
 - **Story** (`src/quests.js`): meet Queen Coralie → find 5 magic pearls (crown reward) → bring baby seahorse Lulu home → sing with the whale → light the 3 crystals in the Deep Trench → rainbow tail. A sparkle trail and floating star always show the way. Swim near any creature to add it to the friends album 📖.
@@ -36,7 +36,7 @@ Controls: left thumb = floating joystick, drag anywhere else to look around, ⬆
 Two layers make the 3D world look hand-painted:
 
 1. **Painted surfaces** (`src/brushwork.js`): seamless painted tiles in `assets/swatch/` (sand, rock, coral, kelp, shell, brush strokes, generated with Codex/GPT Image from the concept frames) are laid on every object with triplanar mapping and tinted by the object's colour. Moving creatures carry their strokes with them.
-2. **Projected paintings** (`src/projection.js`): following the r/aigamedev "paint over the blocks, project it back" process: clean plates of the plain world (`plates/`, `?shot=NAME&clean=1&raw=1`) were painted over by Codex (`painted/plate_*.png`), aligned to the plate (`painted/aligned_*.png`) and projected back from the exact same camera (`src/paintviews.js`). The rebuilt castle has five new plates for the gate, palace, throne hall, library and music gallery; their sources, cameras and prompts are in `painted/castle_*_v2.png`, `painted/castle_cams.json` and `painted/castle_prompts.md`. They show near the spot each one was painted from.
+2. **Projected paintings** (`src/projection.js`): following the r/aigamedev "paint over the blocks, project it back" process: clean plates of the plain world (`plates/`, `?shot=NAME&clean=1&raw=1`) were painted over by Codex and projected back from the exact same camera (`src/paintviews.js`). The current gate and courtyard paintings are `painted/castle_gate_v3.png` and `painted/castle_palace_v3.png`; their cameras and prompts are in `painted/castle_cams_v3.json` and `painted/castle_paint_prompts_v3.md`. Three v2 paintings still cover the throne hall, library, and music gallery. The overhead design target is `painted/castle_overview_concept.png`; the repeatable game comparison is `?shot=overview`.
 
 Rebuild helpers: `tools/make_paintviews.py` (plates/cams.json + paintings → `src/paintviews.js` and `assets/paint/`), `tools/make_swatches.py` (paintings → seamless tiles and `src/swatches.js`).
 
@@ -48,8 +48,12 @@ Rebuild helpers: `tools/make_paintviews.py` (plates/cams.json + paintings → `s
 npm i -D playwright && node tools/shoot.mjs shots
 ```
 
-The castle views are `city`, `palace`, `court`, `hall`, `library`, and
+The castle views are `overview`, `city`, `palace`, `court`, `hall`, `library`, and
 `music`. Run `node tools/castle_playtest.mjs` with the server on port 8123 to
 check that the gate, palace, side rooms, market, and garden are reachable at
 swimming height. On Windows, set `CHROME_PATH` to the installed Chrome or Edge
 executable to use its browser without downloading Playwright's Chromium.
+
+Compare the [overhead concept](painted/castle_overview_concept.png) with the
+[current in-game overhead capture](painted/castle_game_overview_v3.png). The
+camera is repeatable with `?shot=overview` on the local or hosted game.
