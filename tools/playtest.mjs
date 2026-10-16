@@ -1,0 +1,22 @@
+// Smoke test: start the game, swim forward with the keyboard, screenshot the HUD.
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, hasTouch: true });
+let errors = 0;
+page.on('pageerror', (e) => { errors++; console.log('[pageerror]', e.message); });
+page.on('console', (m) => { if (m.type() === 'error') { errors++; console.log('[error]', m.text().slice(0, 300)); } });
+await page.goto('http://127.0.0.1:8123/index.html?fresh=1');
+await page.evaluate(() => localStorage.clear());
+await page.reload();
+await page.waitForSelector('#btnStart', { state: 'visible' });
+await page.waitForTimeout(3000);
+await page.click('#btnStart', { force: true });
+await page.keyboard.down('KeyW');
+await page.waitForTimeout(15000);
+await page.keyboard.up('KeyW');
+await page.waitForTimeout(3000);
+const st = await page.evaluate(() => ({ pos: window.__game.player.position.toArray().map((v) => +v.toFixed(1)), stage: window.__game.story.state.stage, friends: window.__game.story.state.friends }));
+console.log(JSON.stringify(st));
+await page.screenshot({ path: 'shots/hud.png' });
+console.log('errors', errors);
+await browser.close();

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b3a6b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Mermaid Ocean</title>
+<link rel="icon" href="icon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="src/style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="topbar">
+    <div class="pill" id="pearls"><span class="ico">⚪</span><b id="pearlCount">0</b></div>
+    <div class="pill" id="friends"><span class="ico">💖</span><b id="friendCount">0</b></div>
+    <div id="quest" class="pill quest"><span class="ico" id="questIcon">⭐</span><span id="questText"></span></div>
+    <button class="round small" id="btnAlbum" aria-label="album">📖</button>
+    <button class="round small" id="btnMenu" aria-label="menu">⚙️</button>
+  </div>
+
+  <div id="joyZone"></div>
+  <div id="joy" class="hidden"><div id="joyKnob"></div></div>
+
+  <div id="rightBtns">
+    <button class="round big" id="btnUp" aria-label="up">⬆️</button>
+    <button class="round big" id="btnDown" aria-label="down">⬇️</button>
+    <button class="round big action" id="btnAct" aria-label="action">✨</button>
+  </div>
+
+  <div id="bubble" class="hidden">
+    <div id="bubbleFace">🧜‍♀️</div>
+    <div id="bubbleBody">
+      <div id="bubbleName"></div>
+      <div id="bubbleText"></div>
+    </div>
+    <button class="round" id="bubbleOk">👍</button>
+  </div>
+
+  <div id="toast" class="hidden"></div>
+  <div id="friendPop" class="hidden"><div class="emoji" id="friendEmoji"></div><div id="friendName"></div></div>
+</div>
+
+<div id="album" class="panel hidden">
+  <h2 id="albumTitle">My Sea Friends</h2>
+  <div id="albumGrid"></div>
+  <button class="round" id="albumClose">✖️</button>
+</div>
+
+<div id="menu" class="panel hidden">
+  <h2 id="menuTitle">Settings</h2>
+  <div class="row"><span>🎨</span><button class="chip" id="optPaint"></button></div>
+  <div class="row"><span>🔊</span><button class="chip" id="optSound"></button></div>
+  <div class="row"><span>🌍</span><button class="chip" id="optLang"></button></div>
+  <div class="row"><span>⚡</span><button class="chip" id="optQuality"></button></div>
+  <div class="row"><span>🔄</span><button class="chip" id="optReset"></button></div>
+  <button class="round" id="menuClose">✖️</button>
+</div>
+
+<div id="title">
+  <div class="titleInner">
+    <h1>Mermaid<br><span>Ocean</span></h1>
+    <p id="tagline">Dive into a magical sea!</p>
+    <button id="btnStart" class="start">🌊 <span id="startLabel">Dive!</span></button>
+    <p class="hint" id="hintRotate">Turn your phone sideways 📱↔️</p>
+  </div>
+</div>
+
+<div id="loading">🫧</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
