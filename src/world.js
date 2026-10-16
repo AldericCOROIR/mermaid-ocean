@@ -509,6 +509,7 @@ function buildBubbleVents(world) {
 export function collide(pos, radius = 1) {
   for (const c of colliders) {
     if (pos.y > c.top + radius) continue;
+    if (c.bottom !== undefined && pos.y < c.bottom - radius) continue;
     if (c.hw !== undefined) {
       const dx = pos.x - c.x, dz = pos.z - c.z;
       const cs = Math.cos(c.yaw || 0), sn = Math.sin(c.yaw || 0);

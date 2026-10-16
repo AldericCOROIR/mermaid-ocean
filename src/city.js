@@ -255,8 +255,8 @@ export function buildCity(scene) {
   const homeSites = [[-56, -43], [-66, -21], [-69, 2], [-65, 29], [-49, 52],
     [56, -43], [66, -21], [69, 2], [65, 29], [49, 52], [-28, 56], [28, 56]];
   homeSites.forEach(([x, z], i) => {
-    const r = i % 3 === 0 ? 5.5 : 4.6;
-    const h = i % 3 === 0 ? 8 : 6.5;
+    const r = i % 3 === 0 ? 6.8 : 5.7;
+    const h = i % 3 === 0 ? 9 : 7.5;
     const cap = [ROSE, AQUA, LILAC][i % 3];
     parts.push({ geo: new THREE.CylinderGeometry(r * 0.87, r, h, 12),
       matrix: mat(x, h / 2, z), color: SHELL });
@@ -296,6 +296,45 @@ export function buildCity(scene) {
       0.52, [AQUA, ROSE, PEARL][(i + k + 3) % 3]);
     ball(trim, front, 5.0, z + 3.0, 1.0, i % 2 ? PEARL : AQUA, 1, 0.45, 0.28);
   });
+  // Two raised promenade bridges link the palace galleries to the inside of
+  // the wall. The arches below stay open at normal swimming height.
+  for (const side of [-1, 1]) {
+    const bx = side * 61, bz = -32;
+    box(parts, bx, 10.4, bz, 22, 1.0, 5.4, SHELL);
+    colliders.push({ x: C.x + bx, z: C.z + bz, hw: 11, hd: 2.7,
+      bottom: baseY + 9.9, top: baseY + 10.9 });
+    box(trim, bx, 11.2, bz - 2.6, 22, 0.5, 0.45, GOLD);
+    box(trim, bx, 11.2, bz + 2.6, 22, 0.5, 0.45, GOLD);
+    trim.push({ geo: new THREE.TorusGeometry(8, 0.55, 6, 20, Math.PI),
+      matrix: mat(bx, 9.6, bz, 0, 0, Math.PI), color: PEARL });
+    for (const x of [bx - 8, bx + 8]) {
+      column(parts, x, bz, 9.6, 0.55, SHELL);
+      colliders.push({ x: C.x + x, z: C.z + bz, r: 0.55, top: baseY + 9.6 });
+    }
+    for (let j = 0; j < 8; j++) {
+      const x = bx + (j - 3.5) * 2.8;
+      for (const z of [bz - 2.6, bz + 2.6]) {
+        box(trim, x, 12.2, z, 0.36, 2, 0.36, PEARL);
+        ball(trim, x, 13.4, z, 0.36, AQUA);
+      }
+    }
+    // A smaller matching pearl fountain marks each side of the palace steps.
+    const fx = side * 55, fz = -3;
+    parts.push({ geo: new THREE.CylinderGeometry(3.2, 3.5, 1.1, 16),
+      matrix: mat(fx, 0.55, fz), color: SHELL });
+    trim.push({ geo: new THREE.CylinderGeometry(2.6, 2.6, 0.1, 16),
+      matrix: mat(fx, 1.18, fz), color: AQUA });
+    trim.push({ geo: new THREE.TorusGeometry(3.2, 0.25, 5, 16),
+      matrix: mat(fx, 1.2, fz, Math.PI / 2), color: GOLD });
+    ball(trim, fx, 3.3, fz, 1.2, PEARL);
+    for (const a of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {
+      trim.push({ geo: new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(fx, 4.3, fz),
+        new THREE.Vector3(fx + Math.cos(a) * 2.0, 5.2, fz + Math.sin(a) * 2.0),
+        new THREE.Vector3(fx + Math.cos(a) * 2.6, 1.3, fz + Math.sin(a) * 2.6)),
+        8, 0.11, 4), color: AQUA });
+    }
+  }
   for (const [x, z] of [[-22, 23], [22, 23], [-22, 52], [22, 52], [-10, -8], [10, -8], [-55, -31], [55, -31], [-4, 63], [4, 63]]) {
     column(trim, x, z, 4.3, 0.2, GOLD);
     ball(trim, x, 4.8, z, 0.7, PEARL);
