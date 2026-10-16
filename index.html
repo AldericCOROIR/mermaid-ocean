@@ -23,6 +23,7 @@
     <div class="pill" id="friends"><span class="ico">💖</span><b id="friendCount">0</b></div>
     <div id="quest" class="pill quest"><span class="ico" id="questIcon">⭐</span><span id="questText"></span></div>
     <button class="round small" id="btnAlbum" aria-label="album">📖</button>
+    <button class="round small" id="btnWardrobe" aria-label="wardrobe">👗</button>
     <button class="round small" id="btnMenu" aria-label="menu">⚙️</button>
   </div>
 
@@ -45,7 +46,15 @@
   </div>
 
   <div id="toast" class="hidden"></div>
+  <div id="sideQuest" class="pill hidden"></div>
   <div id="friendPop" class="hidden"><div class="emoji" id="friendEmoji"></div><div id="friendName"></div></div>
+</div>
+
+<div id="wardrobe" class="panel hidden" role="dialog" aria-modal="true" aria-labelledby="wardrobeTitle">
+  <h2 id="wardrobeTitle"></h2>
+  <p id="wardrobeHint"></p>
+  <div id="wardrobeChoices"></div>
+  <button class="round" id="wardrobeClose" aria-label="close wardrobe">✖️</button>
 </div>
 
 <div id="album" class="panel hidden">

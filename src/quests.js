@@ -9,7 +9,7 @@ import { sfx } from './audio.js';
 
 export const STAGES = ['meet', 'pearls', 'backQueen', 'baby', 'bringBaby', 'whale', 'shelly', 'crystals', 'finale', 'free'];
 export const ALBUM = ['clownfish', 'tang', 'yellowfish', 'angelfish', 'seahorse', 'crab', 'puffer', 'octopus', 'jellyfish', 'turtle', 'manta', 'dolphin', 'whale', 'mermaid', 'guard'];
-const FACES = { marina: '🧜‍♀️', queen: '👸', guard: '🔱', coral: '🧜🏾‍♀️', pearl: '🧜‍♀️', mama: '💛', baby: '🍼', shelly: '🐢', whale: '🐋' };
+const FACES = { marina: '🧜‍♀️', queen: '👸', guard: '🔱', coral: '🧜🏾‍♀️', pearl: '🧜‍♀️', mama: '💛', baby: '🍼', shelly: '🐢', whale: '🐋', tailor: '🧵', baker: '🧁', keeper: '⛲', bard: '🎶', librarian: '📚', fairy: '🧚' };
 
 function starTexture() {
   return canvasTexture(128, 128, (g) => {
@@ -133,6 +133,12 @@ export class Story {
     // swimming citizens without dialogue
     this.addNPC('citizen', new MerModel(PALETTES.pearl), S.citizens[1]);
     this.addNPC('citizen', new MerModel(PALETTES.marina), S.citizens[2]);
+    for (const r of S.residents) {
+      const m = new MerModel(PALETTES[r.color]);
+      if (r.id === 'fairy') m.setHeadwear('pearlTiara');
+      if (r.id === 'bard') m.setHeadwear('coralClip');
+      this.addNPC(r.id, m, r.pos);
+    }
     for (const a of S.activities) {
       const n = this.addNPC('activity', new MerModel(PALETTES[a.color]), a.pos, false);
       n.activity = a.kind;
@@ -193,8 +199,21 @@ export class Story {
 
   applyRewards() {
     const pm = this.ctx.player.model;
-    if (this.state.crown) pm.addCrown();
-    if (this.state.rainbow) pm.setTailColors('#ff8fcf', '#9ff3ff');
+    if (this.state.crown && !this.state.unlocked.includes('crown')) {
+      this.state.unlocked.push('crown'); this.state.outfit.head = 'crown';
+    }
+    if (this.state.rainbow && !this.state.unlocked.includes('rainbow')) {
+      this.state.unlocked.push('rainbow'); this.state.outfit.tail = 'rainbow';
+    }
+    pm.setOutfit(this.state.outfit);
+  }
+
+  unlockCosmetic(item, category) {
+    if (!this.state.unlocked.includes(item)) this.state.unlocked.push(item);
+    this.state.outfit[category] = item;
+    this.ctx.player.model.setOutfit(this.state.outfit);
+    this.ctx.save.write();
+    this.ctx.ui.toast(`${t('wardrobe.' + item)} ✨`);
   }
 
   target() {
@@ -223,6 +242,30 @@ export class Story {
     const txt = s === 'pearls' ? t('q.pearls', { n: this.state.pearls.length }) : s === 'crystals' ? t('q.crystals', { n: this.state.crystals.length }) : s === 'shelly' ? t('q.crystals', { n: 0 }) : t('q.' + s);
     this.ctx.ui.setQuest(txt, pulse);
     this.ctx.ui.setCounts(this.state.pearls.length, this.state.friends.length);
+    this.refreshSideQuest();
+  }
+
+  refreshSideQuest() {
+    const q = this.state.sideQuests || {};
+    const active = ['tailor', 'keeper', 'bard'].find((id) => q[id] === 'active' || q[id] === 'ready');
+    this.ctx.ui.setSideQuest(active ? t('side.' + active + (q[active] === 'ready' ? 'Return' : 'Goal')) : '');
+  }
+
+  sideQuest(id) {
+    const q = this.state.sideQuests;
+    if (!q[id]) {
+      q[id] = 'active'; this.ctx.save.write(); this.refreshSideQuest();
+      return [[id, id + 'Quest']];
+    }
+    if (q[id] === 'ready') {
+      q[id] = 'done';
+      const reward = { tailor: ['coralClip', 'head'], keeper: ['seaGlass', 'top'], bard: ['sapphire', 'tail'] }[id];
+      this.unlockCosmetic(...reward);
+      this.celebrate(this.ctx.player.position);
+      this.refreshSideQuest();
+      return [[id, id + 'Gift']];
+    }
+    return [[id, id + (q[id] === 'done' ? 'After' : 'Hint')]];
   }
 
   // Lines an NPC says right now (array of [speakerId, key]); may advance the story.
@@ -233,16 +276,18 @@ export class Story {
     if (id === 'guard') return L('guard');
     if (id === 'coral') return L('coral');
     if (id === 'pearl') return L('pearl');
+    if (['tailor', 'keeper', 'bard'].includes(id)) return this.sideQuest(id);
+    if (['baker', 'librarian', 'fairy'].includes(id)) return L(id);
     if (id === 'queen') {
       if (s === 'meet') { this.setStage('pearls'); return L('queen1', 'queen2'); }
       if (s === 'backQueen') {
-        this.state.crown = true; this.ctx.player.model.addCrown();
+        this.state.crown = true; this.unlockCosmetic('crown', 'head');
         this.celebrate(this.ctx.player.position);
         this.setStage('baby');
         return L('queenPearls', 'queenBaby');
       }
       if (s === 'finale') {
-        this.state.rainbow = true; this.ctx.player.model.setTailColors('#ff8fcf', '#9ff3ff');
+        this.state.rainbow = true; this.unlockCosmetic('rainbow', 'tail');
         this.celebrate(this.ctx.player.position, true);
         this.setStage('free');
         return L('queenFinal', 'tailGift', 'free');
@@ -302,6 +347,12 @@ export class Story {
   update(dt, time, controls) {
     const P = this.ctx.player.position;
     const camera = this.ctx.player.camera;
+    const sq = this.state.sideQuests;
+    const S = this.ctx.city.spots;
+    const ready = (id) => { if (sq[id] === 'active') { sq[id] = 'ready'; this.ctx.save.write(); this.refreshSideQuest(); this.ctx.ui.toast(t('side.ready')); } };
+    if (sq.tailor === 'active' && P.distanceTo(S.fountain) < 11) ready('tailor');
+    if (sq.keeper === 'active' && P.distanceTo(S.bridgeWest) < 11) ready('keeper');
+    if (sq.bard === 'active' && P.distanceTo(S.bridgeEast) < 11) ready('bard');
 
     // NPC idle animation, face the player when near
     let nearest = null, nd = 1e9;

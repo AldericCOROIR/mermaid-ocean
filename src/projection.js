@@ -58,10 +58,14 @@ export class PaintProjection {
   }
   update(pr) { pr.uniforms.on.value = pr.ready.tex && pr.ready.depth ? 1 : 0; }
   updateActive(cameraPos) {
+    const exterior = this.projectors.filter((pr) => ['city', 'palace', 'castle_fountain', 'castle_aerial'].includes(pr.name));
+    const nearestExterior = exterior.reduce((best, pr) =>
+      !best || cameraPos.distanceToSquared(pr.cam.position) < cameraPos.distanceToSquared(best.cam.position) ? pr : best, null);
     for (const pr of this.projectors) {
-      const range = pr.name.startsWith('castle_') ? 65 : 115;
+      const range = ['city', 'palace'].includes(pr.name) || pr.name.startsWith('castle_') ? 220 : 115;
       pr.uniforms.on.value = pr.ready.tex && pr.ready.depth &&
-        cameraPos.distanceToSquared(pr.cam.position) < range * range ? 1 : 0;
+        cameraPos.distanceToSquared(pr.cam.position) < range * range &&
+        (!exterior.includes(pr) || pr === nearestExterior) ? 1 : 0;
     }
   }
 
@@ -112,21 +116,21 @@ export class PaintProjection {
         if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return;
         float ld = pLin(n.z * 0.5 + 0.5);
         float ls = pLin(texture2D(D, uv).r);
-        if (ld > ls * 1.015 + 0.25) return; // hidden from the painting's camera
+        if (ld > ls * 1.06 + 1.0) return; // allow depth-map resolution on distant masonry
         vec3 toP = normalize(P - vWPos);
         float facing = abs(dot(normalize(vWNormal), toP));
         float w = smoothstep(0.05, 0.4, facing);
         vec2 e = min(uv, 1.0 - uv);
         w *= smoothstep(0.0, 0.05, e.x) * smoothstep(0.0, 0.05, e.y);
-        w *= 1.0 - smoothstep(55.0, 110.0, ld); // far backgrounds rarely match the painting
+        w *= 1.0 - smoothstep(260.0, 450.0, ld);
         // stretch guard: fade when we look at the surface from far off the painter's axis
         float off = dot(normalize(cameraPosition - vWPos), toP);
         w *= smoothstep(0.45, 0.85, off);
         // only near where the painting was made: elsewhere the painted textures carry the look
-        w *= 1.0 - smoothstep(15.0, 50.0, distance(cameraPosition, P));
+        w *= 1.0 - smoothstep(110.0, 240.0, distance(cameraPosition, P));
         if (w <= 0.0) return;
         wmax = max(wmax, w);
-        w *= exp(-distance(cameraPosition, P) / 40.0); // prefer the painting made nearest to us
+        w *= exp(-distance(cameraPosition, P) / 125.0); // prefer the painting made nearest to us
         acc += texture2D(T, uv).rgb * w; wsum += w; dsum += ld * w;
       }
     `;

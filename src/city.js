@@ -17,6 +17,25 @@ function shellSpire(h, r) {
   return new THREE.LatheGeometry(pts, 12);
 }
 
+// The mermaid floats just above each terrace and rides the broad steps with
+// normal forward movement; swimming upward still gives full 3D freedom.
+export function castleFloorHeight(worldX, worldZ, worldY) {
+  const C = WORLD.cityPos;
+  const x = worldX - C.x, z = worldZ - C.z;
+  let floor = groundHeight(worldX, worldZ);
+  if (Math.abs(x) > 94 || Math.abs(z) > 98) return floor;
+  const base = groundHeight(C.x, C.z);
+  if (Math.abs(x) < 9.5 && z >= 23 && z <= 36)
+    floor = Math.max(floor, base + THREE.MathUtils.clamp((36 - z) / 12, 0, 1) * 4);
+  const onTerrace = (x / 32) ** 2 + ((z - 8) / 25) ** 2 < 1;
+  if (onTerrace && worldY >= base + 3) floor = Math.max(floor, base + 4);
+  if ((Math.abs(x) < 9 || Math.abs(Math.abs(x) - 22) < 5) && z <= -16 && z >= -28 && worldY >= base + 3)
+    floor = Math.max(floor, base + 4 + THREE.MathUtils.clamp((-16 - z) / 12, 0, 1) * 4);
+  if (Math.abs(x) < 51 && z <= -26.5 && z >= -85.5 && worldY >= base + 7)
+    floor = Math.max(floor, base + 8);
+  return floor;
+}
+
 export function buildCity(scene) {
   const city = new THREE.Group();
   const C = WORLD.cityPos;
@@ -64,22 +83,48 @@ export function buildCity(scene) {
   // The complete district sits on a round pearl-stone terrace.
   const floor = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.7, 64),
     withCaustics(paintMat({ color: 0xe7d5db }), 0.7, 'plaza'));
-  floor.scale.set(81, 1, 77);
+  floor.scale.set(94, 1, 97);
   floor.position.y = -0.36;
   city.add(floor);
   // Pale radial streets and a clear processional avenue lead from the gate
   // around the central fountain to the palace steps.
-  box(trim, 0, 0.09, 54, 17, 0.14, 42, PEARL);
-  box(trim, 0, 0.09, 8, 17, 0.14, 22, PEARL);
-  box(trim, 0, 0.09, -12, 116, 0.14, 7, PEARL);
+  box(trim, 0, 0.09, 63, 19, 0.14, 58, PEARL);
+  box(trim, 0, 4.1, 8, 15, 0.14, 30, PEARL);
+  box(trim, 0, 8.1, -22, 18, 0.14, 10, PEARL);
   for (const side of [-1, 1]) {
-    box(trim, side * 37, 0.08, 31, 7, 0.12, 71, AQUA);
-    box(trim, side * 57, 0.08, -6, 6, 0.12, 59, PEARL);
+    box(trim, side * 36, 0.08, 60, 7, 0.12, 54, AQUA);
+    box(trim, side * 63, 0.08, 22, 6, 0.12, 105, PEARL);
+  }
+
+  // Three actual elevations: market at y=0, clam fountain terrace at y=4,
+  // palace podium at y=8. The broad stairs connect them in the main avenue.
+  parts.push({ geo: new THREE.CylinderGeometry(1, 1, 4, 48),
+    matrix: mat(0, 2, 8, 0, 0, 0, 32, 1, 25), color: SHELL });
+  for (let i = 0; i < 8; i++) {
+    const y = (i + 1) * 0.5;
+    box(parts, 0, y / 2, 35 - i * 1.4, 19, y, 1.5, i % 2 ? SHELL : PEARL);
+    box(trim, 0, y + 0.06, 35 - i * 1.4, 19.2, 0.12, 0.5, GOLD);
+  }
+  for (let i = 0; i < 8; i++) {
+    const y = 4 + (i + 1) * 0.5;
+    box(parts, 0, (4 + y) / 2, -17.5 - i * 1.3, 18, y - 4, 1.4, SHELL);
+    box(trim, 0, y + 0.06, -17.5 - i * 1.3, 18.2, 0.12, 0.5, GOLD);
+  }
+  for (const side of [-1, 1]) for (let i = 0; i < 8; i++) {
+    const y = 4 + (i + 1) * 0.5;
+    box(parts, side * 22, (4 + y) / 2, -17.5 - i * 1.3, 9.5, y - 4, 1.4, PEARL);
+    box(trim, side * 22, y + 0.06, -17.5 - i * 1.3, 9.7, 0.12, 0.5, GOLD);
+  }
+  for (const side of [-1, 1]) {
+    for (const z of [35, 25, -17, -27]) {
+      column(trim, side * 11, z, z > 0 ? 5 : 9, 0.27, GOLD);
+      ball(trim, side * 11, z > 0 ? 5.6 : 9.6, z, 0.62, PEARL);
+    }
   }
 
   // The concept's oval curtain wall is made of short solid chords. The front
   // arc has an actual 22-unit gap so the player can swim through the portal.
-  const RX = 79, RZ = 76, GATE = 0.145, N = 38;
+  const RX = 92, RZ = 95, GATE = 0.145, N = 46;
   const ring = (a) => new THREE.Vector2(RX * Math.sin(a), RZ * Math.cos(a));
   for (let i = 0; i < N; i++) {
     const a0 = -Math.PI + i * Math.PI * 2 / N;
@@ -126,14 +171,16 @@ export function buildCity(scene) {
         new THREE.Vector3(x, 1.5, z + 1.1), end]), 3, 0.16, 4), color: PEARL });
     }
   };
-  fan(-12.5, 76, -1); fan(12.5, 76, 1);
-  arch(0, 76.5, 10.6, 12.5, GOLD);
-  ball(trim, 0, 23.5, 76.5, 1.5, PEARL);
-  box(trim, -13, 5, 70.8, 1.3, 9.5, 6, GOLD, -0.38);
-  box(trim, 13, 5, 70.8, 1.3, 9.5, 6, GOLD, 0.38);
+  fan(-14, 95, -1); fan(14, 95, 1);
+  arch(0, 95.5, 11.8, 13, GOLD);
+  ball(trim, 0, 25.2, 95.5, 1.5, PEARL);
+  box(trim, -14.5, 5, 89.8, 1.3, 9.5, 6, GOLD, -0.38);
+  box(trim, 14.5, 5, 89.8, 1.3, 9.5, 6, GOLD, 0.38);
 
   // Great hall: central nave and connected side aisles. The wall gaps are
   // physical doorways, including the broad front entrance.
+  const palaceStart = { parts: parts.length, trim: trim.length,
+    windows: windows.length, colliders: colliders.length };
   wall(-16, -3, 15, 3, 23);
   wall(16, -3, 15, 3, 23);
   wall(0, -59, 48, 3, 24);
@@ -164,10 +211,10 @@ export function buildCity(scene) {
     trim.push({ geo: new THREE.TubeGeometry(curve, 24, 0.22, 5, false), color: PEARL });
   }
   for (const x of [-24, 24]) {
-    tower(x, -4, 35, 5.5, x < 0 ? AQUA : LILAC);
-    tower(x, -58, 39, 5.5, x < 0 ? LILAC : AQUA);
+    tower(x, -4, 31, 5.5, x < 0 ? AQUA : LILAC);
+    tower(x, -58, 34, 5.5, x < 0 ? LILAC : AQUA);
   }
-  tower(0, -58, 40, 6.5, ROSE);
+  tower(0, -58, 35, 6.5, ROSE);
 
   // Library to the left and music gallery to the right. Both can be entered
   // from the courtyard or through the open arches in the great hall.
@@ -214,8 +261,24 @@ export function buildCity(scene) {
     for (const dx of [-1.5, 0, 1.5]) column(trim, 36 + dx, z, 4.5 + Math.abs(dx), 0.16, GOLD);
   }
 
+  // The existing enterable hall, library and music room move together onto
+  // the raised rear podium. The geometry, windows and collision all share the
+  // same transform, preserving their real open doors.
+  const palaceShift = new THREE.Matrix4().makeTranslation(0, 8, -25);
+  for (const list of [parts.slice(palaceStart.parts), trim.slice(palaceStart.trim)]) {
+    for (const piece of list) piece.matrix = palaceShift.clone().multiply(piece.matrix || new THREE.Matrix4());
+  }
+  for (let i = palaceStart.windows; i < windows.length; i++) windows[i] = palaceShift.clone().multiply(windows[i]);
+  for (let i = palaceStart.colliders; i < colliders.length; i++) {
+    colliders[i].z -= 25; colliders[i].top += 8;
+  }
+  box(parts, 0, 4, -56, 102, 8, 59, PEARL);
+  colliders.push({ x: C.x, z: C.z - 56, hw: 51, hd: 29.5,
+    bottom: baseY, top: baseY + 7.5 });
+
   // A round, scalloped fountain is the city landmark. Its raised clam holds
   // a pearl, with four visible streams returning to the water basin.
+  const fountainStart = { parts: parts.length, trim: trim.length, colliders: colliders.length };
   parts.push({ geo: new THREE.CylinderGeometry(9.3, 10, 1.6, 32), matrix: mat(0, 0.8, 30), color: SHELL });
   trim.push({ geo: new THREE.CylinderGeometry(8.2, 8.2, 0.12, 32), matrix: mat(0, 1.65, 30), color: AQUA });
   trim.push({ geo: new THREE.TorusGeometry(9.35, 0.6, 7, 36), matrix: mat(0, 1.7, 30, Math.PI / 2), color: GOLD });
@@ -249,11 +312,19 @@ export function buildCity(scene) {
       12, 0.19, 5), color: AQUA });
   }
   colliders.push({ x: C.x, z: C.z + 30, r: 9.3, top: baseY + 8 });
+  const fountainShift = new THREE.Matrix4().makeTranslation(0, 4, -22);
+  for (const list of [parts.slice(fountainStart.parts), trim.slice(fountainStart.trim)]) {
+    for (const piece of list) piece.matrix = fountainShift.clone().multiply(piece.matrix || new THREE.Matrix4());
+  }
+  for (let i = fountainStart.colliders; i < colliders.length; i++) {
+    colliders[i].z -= 22; colliders[i].top += 4;
+  }
 
   // Small shell houses follow the oval wall. Every front door faces a lane,
   // so the silhouette reads as a lived-in miniature city from above.
-  const homeSites = [[-56, -43], [-66, -21], [-69, 2], [-65, 29], [-49, 52],
-    [56, -43], [66, -21], [69, 2], [65, 29], [49, 52], [-28, 56], [28, 56]];
+  const homeSites = [[-58, -65], [-75, -48], [-82, -10], [-82, 18], [-73, 46], [-58, 68], [-31, 82],
+    [58, -65], [75, -48], [82, -10], [82, 18], [73, 46], [58, 68], [31, 82],
+    [-48, 24], [-56, 5], [48, 24], [56, 5]];
   homeSites.forEach(([x, z], i) => {
     const r = i % 3 === 0 ? 6.8 : 5.7;
     const h = i % 3 === 0 ? 9 : 7.5;
@@ -278,8 +349,8 @@ export function buildCity(scene) {
 
   // Open-front boutiques form two market lanes. Striped cloth panels, hanging
   // shell signs and individual wares make them legible as shops at street level.
-  const shops = [[-27, 46], [27, 46], [-38, 59], [38, 59],
-    [-47, 22], [47, 22], [-48, 39], [48, 39], [-32, 15], [32, 15]];
+  const shops = [[-20, 78], [-30, 66], [-44, 77], [-47, 57], [-31, 49], [-56, 41], [-68, 63], [-63, 17],
+    [20, 78], [30, 66], [44, 77], [47, 57], [39, 45], [58, 40], [65, 59], [67, 14]];
   shops.forEach(([x, z], i) => {
     const side = x < 0 ? 1 : -1, front = x + side * 3.8;
     box(parts, x, 0.8, z, 8.2, 1.6, 6.5, SHELL);
@@ -296,6 +367,26 @@ export function buildCity(scene) {
       0.52, [AQUA, ROSE, PEARL][(i + k + 3) % 3]);
     ball(trim, front, 5.0, z + 3.0, 1.0, i % 2 ? PEARL : AQUA, 1, 0.45, 0.28);
   });
+  // The lower market's shell-roof pavilion is an open place to meet citizens.
+  const pavilionX = 21, pavilionZ = 44;
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4;
+    column(parts, pavilionX + Math.cos(a) * 4.2, pavilionZ + Math.sin(a) * 4.2, 7, 0.35, SHELL);
+  }
+  parts.push({ geo: new THREE.SphereGeometry(4.9, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+    matrix: mat(pavilionX, 7, pavilionZ, 0, 0, 0, 1, 0.7, 1), color: LILAC });
+  ball(trim, pavilionX, 10.6, pavilionZ, 0.8, PEARL);
+  for (const [x, z] of [[-69, 30], [-50, 31], [-35, 37], [-30, 85], [31, 84], [56, 31], [72, 34],
+    [-35, 11], [35, 10], [-47, -10], [47, -10]]) {
+    parts.push({ geo: new THREE.CylinderGeometry(2.8, 2.5, 0.9, 10), matrix: mat(x, 0.45, z), color: SHELL });
+    for (let k = 0; k < 7; k++) {
+      const a = k * 2.4;
+      column(parts, x + Math.sin(a) * 1.7, z + Math.cos(a) * 1.7,
+        1.5 + (k % 3) * 0.65, 0.14, k % 2 ? ROSE : AQUA);
+      ball(trim, x + Math.sin(a) * 1.7, 2.5 + (k % 3) * 0.65,
+        z + Math.cos(a) * 1.7, 0.34, k % 2 ? GOLD : LILAC);
+    }
+  }
   // Two raised promenade bridges link the palace galleries to the inside of
   // the wall. The arches below stay open at normal swimming height.
   for (const side of [-1, 1]) {
@@ -319,23 +410,26 @@ export function buildCity(scene) {
       }
     }
     // A smaller matching pearl fountain marks each side of the palace steps.
-    const fx = side * 55, fz = -3;
+    const fx = side * 43, fz = -14, fy = 4;
+    parts.push({ geo: new THREE.CylinderGeometry(1.3, 2.1, 4, 12),
+      matrix: mat(fx, 2, fz), color: SHELL });
     parts.push({ geo: new THREE.CylinderGeometry(3.2, 3.5, 1.1, 16),
-      matrix: mat(fx, 0.55, fz), color: SHELL });
+      matrix: mat(fx, fy + 0.55, fz), color: SHELL });
     trim.push({ geo: new THREE.CylinderGeometry(2.6, 2.6, 0.1, 16),
-      matrix: mat(fx, 1.18, fz), color: AQUA });
+      matrix: mat(fx, fy + 1.18, fz), color: AQUA });
     trim.push({ geo: new THREE.TorusGeometry(3.2, 0.25, 5, 16),
-      matrix: mat(fx, 1.2, fz, Math.PI / 2), color: GOLD });
-    ball(trim, fx, 3.3, fz, 1.2, PEARL);
+      matrix: mat(fx, fy + 1.2, fz, Math.PI / 2), color: GOLD });
+    ball(trim, fx, fy + 3.3, fz, 1.2, PEARL);
     for (const a of [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]) {
       trim.push({ geo: new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(
-        new THREE.Vector3(fx, 4.3, fz),
-        new THREE.Vector3(fx + Math.cos(a) * 2.0, 5.2, fz + Math.sin(a) * 2.0),
-        new THREE.Vector3(fx + Math.cos(a) * 2.6, 1.3, fz + Math.sin(a) * 2.6)),
+        new THREE.Vector3(fx, fy + 4.3, fz),
+        new THREE.Vector3(fx + Math.cos(a) * 2.0, fy + 5.2, fz + Math.sin(a) * 2.0),
+        new THREE.Vector3(fx + Math.cos(a) * 2.6, fy + 1.3, fz + Math.sin(a) * 2.6)),
         8, 0.11, 4), color: AQUA });
     }
   }
-  for (const [x, z] of [[-22, 23], [22, 23], [-22, 52], [22, 52], [-10, -8], [10, -8], [-55, -31], [55, -31], [-4, 63], [4, 63]]) {
+  for (const [x, z] of [[-13, 39], [13, 39], [-12, 58], [12, 58], [-12, 78], [12, 78],
+    [-38, 42], [36, 40], [-50, 68], [50, 67], [-70, 5], [70, 5]]) {
     column(trim, x, z, 4.3, 0.2, GOLD);
     ball(trim, x, 4.8, z, 0.7, PEARL);
     lamps.push([x, z]);
@@ -366,35 +460,94 @@ export function buildCity(scene) {
   ribbon.translate(0, -3, 0);
   const ribMat = withSway(paintMat({ color: ROSE, side: THREE.DoubleSide, emissive: 0x301028 }),
     { amp: 1.2, freq: 1.4, heightScale: 0.35, key: 'rib' });
-  for (const [x, z] of [[-11.4, 75.2], [11.4, 75.2], [-24, -4], [24, -4], [-24, -58], [24, -58]]) {
+  for (const [x, z] of [[-11.4, 95.2], [11.4, 95.2], [-24, 8], [24, 8], [-24, -58], [24, -58]]) {
     const flag = new THREE.Mesh(ribbon, ribMat);
     flag.position.set(x, z > 0 ? 27 : 36, z);
     city.add(flag);
   }
 
+  // Moving pearl-water droplets and expanding ripples make the fountains live.
+  const jets = [];
+  for (const [cx, cy, cz, radius, count] of [[0, 4, 8, 7, 10], [-43, 8, -14, 3.2, 5], [43, 8, -14, 3.2, 5]]) {
+    for (let i = 0; i < count; i++) {
+      const a = i * Math.PI * 2 / count;
+      jets.push(new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(cx, cy + 7.2, cz),
+        new THREE.Vector3(cx + Math.cos(a) * radius * 0.5, cy + 11, cz + Math.sin(a) * radius * 0.5),
+        new THREE.Vector3(cx + Math.cos(a) * radius, cy + 1.6, cz + Math.sin(a) * radius)));
+    }
+  }
+  const nDrops = jets.length * 8;
+  const dropPositions = new Float32Array(nDrops * 3);
+  const dropGeometry = new THREE.BufferGeometry();
+  dropGeometry.setAttribute('position', new THREE.BufferAttribute(dropPositions, 3).setUsage(THREE.DynamicDrawUsage));
+  const drops = new THREE.Points(dropGeometry, new THREE.PointsMaterial({ color: 0xc6ffff,
+    size: 0.58, transparent: true, opacity: 0.82, depthWrite: false, sizeAttenuation: true }));
+  drops.frustumCulled = false;
+  city.add(drops);
+  const ripples = [];
+  for (const [cx, cy, cz, radius] of [[0, 4, 8, 7], [-43, 8, -14, 3.2], [43, 8, -14, 3.2]]) {
+    for (let i = 0; i < 3; i++) {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.96, 1, 48),
+        new THREE.MeshBasicMaterial({ color: 0xe5ffff, transparent: true, opacity: 0.55,
+          side: THREE.DoubleSide, depthWrite: false }));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(cx, cy + 1.69, cz);
+      city.add(ring);
+      ripples.push({ ring, max: radius, phase: i / 3 });
+    }
+  }
+  const update = (_dt, time) => {
+    const p = new THREE.Vector3();
+    for (let j = 0; j < jets.length; j++) for (let i = 0; i < 8; i++) {
+      jets[j].getPoint(((i / 8 + time * 0.36 + j * 0.09) % 1), p);
+      const at = (j * 8 + i) * 3;
+      dropPositions[at] = p.x; dropPositions[at + 1] = p.y; dropPositions[at + 2] = p.z;
+    }
+    dropGeometry.attributes.position.needsUpdate = true;
+    for (const { ring, max, phase } of ripples) {
+      const u = (time * 0.42 + phase) % 1;
+      ring.scale.setScalar(0.5 + max * u);
+      ring.material.opacity = 0.36 * (1 - u);
+    }
+  };
+  update(0, 0);
+
   return {
     group: city,
+    update,
     spots: {
-      queen: local(0, 5, -48),
-      gate: local(0, 4, 67),
-      garden: local(56, 3, -32),
-      guards: [local(-17, 4, 57), local(17, 4, 57)],
-      citizens: [local(-39, 5, 24), local(39, 6, 25), local(-36, 5, -29), local(36, 5, -29)],
-      activities: [
-        { kind: 'market', pos: local(-39, 5, 40), color: 'coral' },
-        { kind: 'market', pos: local(39, 5, 40), color: 'pearl' },
-        { kind: 'market', pos: local(-30, 5, 58), color: 'marina' },
-        { kind: 'market', pos: local(31, 5, 58), color: 'coral' },
-        { kind: 'market', pos: local(-46, 5, 17), color: 'pearl' },
-        { kind: 'market', pos: local(46, 5, 17), color: 'marina' },
-        { kind: 'garden', pos: local(56, 4, -32), color: 'marina' },
-        { kind: 'court', pos: local(-22, 6, -7), color: 'coral' },
-        { kind: 'library', pos: local(-36, 5, -39), color: 'pearl' },
-        { kind: 'music', pos: local(36, 5, -34), color: 'coral' },
-        { kind: 'court', pos: local(-14, 6, 29), color: 'marina' },
-        { kind: 'court', pos: local(16, 7, 27), color: 'pearl' },
+      queen: local(0, 13, -73),
+      gate: local(0, 4, 95),
+      garden: local(68, 4, -22),
+      guards: [local(-17, 4, 84), local(17, 4, 84)],
+      citizens: [local(-39, 5, 60), local(39, 6, 60), local(-36, 9, -10), local(36, 9, -10)],
+      residents: [
+        { id: 'tailor', pos: local(-27, 4, 66), color: 'coral' },
+        { id: 'baker', pos: local(30, 4, 65), color: 'pearl' },
+        { id: 'keeper', pos: local(-17, 8, 8), color: 'marina' },
+        { id: 'bard', pos: local(46, 12, -27), color: 'coral' },
+        { id: 'librarian', pos: local(-36, 13, -64), color: 'pearl' },
+        { id: 'fairy', pos: local(70, 5, -22), color: 'marina' },
       ],
-      seahorses: [local(57, 5, -18), local(55, 6, -52)],
+      bridgeWest: local(-61, 11, -32),
+      bridgeEast: local(61, 11, -32),
+      fountain: local(0, 8, 8),
+      activities: [
+        { kind: 'market', pos: local(-40, 5, 72), color: 'coral' },
+        { kind: 'market', pos: local(40, 5, 72), color: 'pearl' },
+        { kind: 'market', pos: local(-37, 5, 48), color: 'marina' },
+        { kind: 'market', pos: local(46, 5, 52), color: 'coral' },
+        { kind: 'market', pos: local(-53, 5, 20), color: 'pearl' },
+        { kind: 'market', pos: local(55, 5, 19), color: 'marina' },
+        { kind: 'garden', pos: local(68, 5, -22), color: 'marina' },
+        { kind: 'court', pos: local(-22, 9, 4), color: 'coral' },
+        { kind: 'library', pos: local(-36, 13, -64), color: 'pearl' },
+        { kind: 'music', pos: local(36, 13, -64), color: 'coral' },
+        { kind: 'court', pos: local(-14, 9, 18), color: 'marina' },
+        { kind: 'court', pos: local(16, 9, 18), color: 'pearl' },
+      ],
+      seahorses: [local(61, 6, -5), local(-63, 6, 27), local(55, 10, -52)],
     },
   };
 }

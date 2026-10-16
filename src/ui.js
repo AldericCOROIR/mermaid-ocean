@@ -9,10 +9,20 @@ export class UI {
   constructor() {
     this.thumbs = {};
     this.onBubbleOk = null;
+    this.wardrobeOpen = false;
+    this.onWardrobeSelect = null;
+    this.onWardrobeOpen = null;
+    this.onWardrobeClose = null;
     $('bubbleOk').addEventListener('click', () => this.onBubbleOk?.());
     $('bubble').addEventListener('click', (e) => { if (e.target.id !== 'bubbleOk') this.onBubbleOk?.(); });
     $('btnAlbum').addEventListener('click', () => this.openAlbum());
     $('albumClose').addEventListener('click', () => $('album').classList.add('hidden'));
+    $('btnWardrobe').addEventListener('click', () => this.openWardrobe());
+    $('wardrobeClose').addEventListener('click', () => this.closeWardrobe());
+    $('wardrobeChoices').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-category]');
+      if (b && !b.disabled) this.onWardrobeSelect?.(b.dataset.category, b.dataset.item);
+    });
     $('btnMenu').addEventListener('click', () => { this.renderMenu(); $('menu').classList.remove('hidden'); });
     $('menuClose').addEventListener('click', () => $('menu').classList.add('hidden'));
     // tap the quest to hear it again
@@ -56,6 +66,41 @@ export class UI {
 
   actionReady(on) { $('btnAct').classList.toggle('ready', on); $('btnAct').textContent = on ? '💬' : '✨'; }
 
+  setSideQuest(text) {
+    $('sideQuest').textContent = text ? `✨ ${text}` : '';
+    $('sideQuest').classList.toggle('hidden', !text);
+  }
+
+  openWardrobe() {
+    $('album').classList.add('hidden'); $('menu').classList.add('hidden');
+    this.wardrobeOpen = true;
+    $('hud').classList.add('wardrobeMode');
+    $('wardrobe').classList.remove('hidden');
+    this.renderWardrobe();
+    this.onWardrobeOpen?.();
+  }
+  closeWardrobe() {
+    this.wardrobeOpen = false;
+    $('wardrobe').classList.add('hidden');
+    $('hud').classList.remove('wardrobeMode');
+    this.onWardrobeClose?.();
+  }
+  renderWardrobe() {
+    const state = this.getWardrobe?.() || { unlocked: [], outfit: {} };
+    $('wardrobeTitle').textContent = t('wardrobe.title');
+    $('wardrobeHint').textContent = t('wardrobe.hint');
+    const groups = {
+      tail: ['teal', 'rose', 'sapphire', 'rainbow'],
+      top: ['lavender', 'seaGlass', 'coral', 'gold'],
+      head: ['none', 'coralClip', 'pearlTiara', 'crown'],
+    };
+    $('wardrobeChoices').innerHTML = Object.entries(groups).map(([category, items]) =>
+      `<section class="dressGroup"><h3>${t('wardrobe.' + category)}</h3><div class="dressChoices">${items.map((item) => {
+        const unlocked = state.unlocked.includes(item);
+        return `<button class="dressChoice ${state.outfit[category] === item ? 'selected' : ''}" data-category="${category}" data-item="${item}" ${unlocked ? '' : 'disabled'}>${unlocked ? '' : '🔒 '}${t('wardrobe.' + item)}</button>`;
+      }).join('')}</div></section>`).join('');
+  }
+
   openAlbum() {
     const friends = this.getFriends?.() || [];
     $('albumTitle').textContent = `${t('album')} ${friends.length}/${ALBUM.length}`;
@@ -87,12 +132,17 @@ export class UI {
 // Progress & settings, kept in this browser only.
 export class Save {
   constructor() {
-    const def = { stage: 'meet', pearls: [], crystals: [], friends: [], crown: false, rainbow: false };
+    const def = { stage: 'meet', pearls: [], crystals: [], friends: [], crown: false, rainbow: false,
+      sideQuests: {}, unlocked: ['teal', 'lavender', 'none'],
+      outfit: { tail: 'teal', top: 'lavender', head: 'none' } };
     const lang = (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
     const defS = { paint: true, sound: true, lang, quality: 'auto' };
     let data = null;
     try { data = JSON.parse(localStorage.getItem('mermaid-ocean-v1') || 'null'); } catch { data = null; }
     this.state = { ...def, ...(data?.state || {}) };
+    this.state.sideQuests ||= {};
+    this.state.unlocked = Array.isArray(this.state.unlocked) ? this.state.unlocked : [...def.unlocked];
+    this.state.outfit = { ...def.outfit, ...(this.state.outfit || {}) };
     this.settings = { ...defS, ...(data?.settings || {}) };
   }
   write() {

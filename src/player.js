@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { WORLD, groundHeight, damp, bubbleTexture } from './util.js';
 import { MerModel, PALETTES } from './mermaid.js';
 import { collide } from './world.js';
+import { castleFloorHeight } from './city.js';
 
 const SPEED = 9, DASH = 22;
 
@@ -92,7 +93,7 @@ export class Player {
     this.position.addScaledVector(this.velocity, dt);
 
     // ---- world limits ----
-    const g = groundHeight(this.position.x, this.position.z);
+    const g = castleFloorHeight(this.position.x, this.position.z, this.position.y);
     if (this.position.y < g + 1.0) { this.position.y = g + 1.0; this.velocity.y = Math.max(0, this.velocity.y); }
     const surf = WORLD.surfaceY - 0.6;
     if (!this.airborne && this.position.y > surf) {

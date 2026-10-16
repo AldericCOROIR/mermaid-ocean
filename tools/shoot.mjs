@@ -20,6 +20,7 @@ for (const n of names) {
   await page.waitForFunction(() => window.__shotReady === true, null, { timeout: 180000 });
   await page.screenshot({ path: `${out}/${n}.png`, timeout: 240000 });
   cams[n] = await page.evaluate(() => { const c = window.__game.camera; return { p: c.position.toArray(), q: c.quaternion.toArray(), fov: c.fov, aspect: c.aspect }; });
+  if (n === 'overview') console.log('active projection', await page.evaluate(() => window.__game.projection.projectors.filter(p => p.uniforms.on.value).map(p => p.name)));
   console.log('saved', n);
 }
 writeFileSync(`${out}/cams.json`, JSON.stringify(cams, null, 1));

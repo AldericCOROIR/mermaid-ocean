@@ -66,6 +66,7 @@ export class MerModel {
     const hairM = paintMat({ color: p.hair, emissive: new THREE.Color(p.hair).multiplyScalar(0.18) });
     const hair2M = paintMat({ color: p.hair2, emissive: new THREE.Color(p.hair2).multiplyScalar(0.18) });
     const topM = paintMat({ color: p.top, emissive: new THREE.Color(p.top).multiplyScalar(0.2) });
+    this.topMat = topM;
     const big = p.merman ? 1.15 : 1;
 
     // torso
@@ -268,6 +269,53 @@ export class MerModel {
     this.tailMat.map = scaleTexture(c1, c2);
     this.tailMat.emissive.set(c1).multiplyScalar(0.25);
     this.tailMat.needsUpdate = true;
+  }
+
+  setOutfit(outfit = {}) {
+    const tails = {
+      teal: ['#3fd1c7', '#a8fff2'], rose: ['#ff7fac', '#ffe0ef'],
+      sapphire: ['#448fe8', '#b9e7ff'], rainbow: ['#ff8fcf', '#9ff3ff'],
+    };
+    const tops = { lavender: 0xb98cff, seaGlass: 0x69e5d2, coral: 0xff8eab, gold: 0xffd36b };
+    const [c1, c2] = tails[outfit.tail] || tails.teal;
+    this.setTailColors(c1, c2);
+    const top = tops[outfit.top] || tops.lavender;
+    this.topMat.color.setHex(top);
+    this.topMat.emissive.setHex(top).multiplyScalar(0.2);
+    this.setHeadwear(outfit.head || 'none');
+  }
+
+  setHeadwear(kind) {
+    if (!this.headwear) {
+      this.headwear = {};
+      const coral = new THREE.Group();
+      const cm = paintMat({ color: 0xff8fae, emissive: 0x52202e });
+      for (let i = 0; i < 5; i++) {
+        const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.035, 0.1 + i * 0.025, 3, 5), cm);
+        b.position.set(0.30 + i * 0.035, 0.27 + i * 0.02, 0.1);
+        b.rotation.z = -0.25 + i * 0.2;
+        coral.add(b);
+      }
+      coral.add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), paintMat({ color: 0xffe6a1, emissive: 0x584023 })));
+      coral.children.at(-1).position.set(0.32, 0.24, 0.14);
+      this.head.add(coral); this.headwear.coralClip = coral;
+      const tiara = new THREE.Group();
+      const gold = paintMat({ color: 0xffd991, emissive: 0x463014 });
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.028, 5, 18, Math.PI), gold);
+      band.rotation.x = -0.45; band.rotation.z = Math.PI;
+      tiara.add(band);
+      for (const x of [-0.16, 0, 0.16]) {
+        const pearl = new THREE.Mesh(new THREE.SphereGeometry(x === 0 ? 0.085 : 0.055, 10, 8),
+          paintMat({ color: 0xfffaeb, emissive: 0x88809b }));
+        pearl.position.set(x, x === 0 ? 0.16 : 0.09, 0.03);
+        tiara.add(pearl);
+      }
+      tiara.position.set(0, 0.34, 0.03);
+      this.head.add(tiara); this.headwear.pearlTiara = tiara;
+    }
+    if (kind === 'crown' && !this.crown) this.addCrown();
+    if (this.crown) this.crown.visible = kind === 'crown';
+    for (const [name, piece] of Object.entries(this.headwear)) piece.visible = name === kind;
   }
 
   // speed: 0..1 normalised; swim: target pose blend; dt seconds

@@ -18,6 +18,7 @@ import { initAudio, setSound, sfx } from './audio.js';
 
 const params = new URLSearchParams(location.search);
 const SHOT = params.get('shot');
+const COMPARE = params.get('compare') === '1';
 if (SHOT) document.body.classList.add('shot');
 
 const canvas = document.getElementById('game');
@@ -35,8 +36,8 @@ if (!['high', 'medium', 'low'].includes(settings.quality)) {
 }
 if (SHOT) settings.quality = params.get('q') || 'high';
 const QUALITY = {
-  high: { ratio: 1.5, scale: 1, dof: 4, paint: 1 },
-  medium: { ratio: 1.5, scale: 1, dof: 3, paint: 1 },
+  high: { ratio: 1.5, scale: 1, dof: 2.8, paint: 1 },
+  medium: { ratio: 1.5, scale: 1, dof: 2.2, paint: 1 },
   low: { ratio: 1, scale: 1, dof: 0, paint: 0 },
 };
 
@@ -47,9 +48,9 @@ scene.background = FOG_SHALLOW.clone();
 
 const camera = new THREE.PerspectiveCamera(62, 1, 0.3, 1200);
 
-const hemi = new THREE.HemisphereLight(0xc8f6ff, 0x5a6aa8, 3.3);
+const hemi = new THREE.HemisphereLight(0xc8f6ff, 0x5a6aa8, 2.15);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff1d6, 3.2);
+const sun = new THREE.DirectionalLight(0xfff1d6, 2.15);
 sun.position.set(30, 100, 20);
 scene.add(sun);
 
@@ -71,6 +72,24 @@ ui.settings = settings;
 ui.getFriends = () => save.state.friends;
 const story = new Story(scene, { player, city, creatures, ui, save });
 ui.onBubbleOk = () => story.advanceDialog();
+ui.getWardrobe = () => ({ unlocked: save.state.unlocked, outfit: save.state.outfit });
+ui.onWardrobeSelect = (category, item) => {
+  if (!['tail', 'top', 'head'].includes(category) || !save.state.unlocked.includes(item)) return;
+  save.state.outfit[category] = item;
+  player.model.setOutfit(save.state.outfit);
+  save.write(); ui.renderWardrobe();
+};
+let wardrobeReturn = null;
+ui.onWardrobeOpen = () => {
+  wardrobeReturn = player.position.clone();
+  player.velocity.set(0, 0, 0);
+  player.position.set(0, 24, 105);
+};
+ui.onWardrobeClose = () => {
+  if (wardrobeReturn) player.position.copy(wardrobeReturn);
+  wardrobeReturn = null;
+  player.snapCamera();
+};
 player.splashCb = (p) => { sfx('splash'); story.bursts.emit(new THREE.Vector3(p.x, WORLD.surfaceY, p.z), 20, 'spark', 0xffffff, 6); };
 
 const post = new Post(renderer);
@@ -80,6 +99,7 @@ function applyQuality() {
   post.scale = q.scale;
   post.mat.uniforms.uDof.value = q.dof;
   post.mat.uniforms.uPaint.value = settings.paint ? q.paint * 0.5 : 0;
+  if (COMPARE) { post.mat.uniforms.uDof.value = 0; post.mat.uniforms.uPaint.value = 0; }
   brush.amount.value = settings.paint && params.get('brush') !== '0' && params.get('clean') !== '1' ? 1 : 0;
   projection.amount.value = settings.paint && params.get('proj') !== '0' && params.get('clean') !== '1' ? 1 : 0;
   post.enabled = settings.quality !== 'low' || settings.paint;
@@ -155,16 +175,20 @@ $('btnStart').addEventListener('click', () => {
 
 // ---------- screenshot presets (used by tools/shoot.mjs) ----------
 const SHOTS = {
-  city: { p: [0, 16, -35], yaw: Math.PI, pitch: 0.12, dist: 9 },
+  city: { p: [0, 14, -39], yaw: Math.PI, pitch: -0.08, dist: 8 },
+  market: { p: [0, 12, -55], yaw: Math.PI, pitch: -0.17, dist: 7 },
+  fountain: { p: [0, 13, -122], yaw: Math.PI, pitch: -0.08, dist: 7 },
+  westbridge: { p: [-54, 18, -109], yaw: Math.PI * 1.18, pitch: -0.12, dist: 7 },
+  eastbridge: { p: [54, 18, -109], yaw: Math.PI * 0.82, pitch: -0.12, dist: 7 },
   reef: { p: [WORLD.reefPos.x - 6, groundHeight(WORLD.reefPos.x - 6, WORLD.reefPos.z + 10) + 4, WORLD.reefPos.z + 10], yaw: Math.PI * 0.85, pitch: -0.18, dist: 7 },
   kelp: { p: [WORLD.kelpPos.x + 8, 10, WORLD.kelpPos.z + 5], yaw: -Math.PI * 0.6, pitch: 0.15, dist: 7 },
   trench: { p: [WORLD.trenchPos.x - 10, groundHeight(WORLD.trenchPos.x - 10, WORLD.trenchPos.z - 30) + 6, WORLD.trenchPos.z - 30], yaw: 0.2, pitch: -0.35, dist: 8 },
   mermaid: { p: [10, 18, 40], yaw: Math.PI * 0.75, pitch: 0.0, dist: 4.2, swim: true },
-  palace: { p: [0, 7, -110], yaw: Math.PI, pitch: 0.18, dist: 7 },
+  palace: { p: [0, 16, -147], yaw: Math.PI, pitch: 0.08, dist: 7 },
   court: { p: [0, 9, -115], yaw: Math.PI, pitch: 0.05, dist: 7 },
-  hall: { p: [0, 6, -180], yaw: Math.PI, pitch: 0.04, dist: 6 },
-  library: { p: [-36, 6, -181], yaw: Math.PI, pitch: 0.03, dist: 5 },
-  music: { p: [36, 6, -181], yaw: Math.PI, pitch: 0.03, dist: 5 },
+  hall: { p: [0, 14, -205], yaw: Math.PI, pitch: 0.04, dist: 6 },
+  library: { p: [-36, 14, -206], yaw: Math.PI, pitch: 0.03, dist: 5 },
+  music: { p: [36, 14, -206], yaw: Math.PI, pitch: 0.03, dist: 5 },
   face: { p: [10, 18, 40], yaw: Math.PI * 0.75, pitch: 0.05, dist: 3.6, face: true },
   city2: { p: [-10, 11, -72], yaw: Math.PI - 0.35, pitch: 0.1, dist: 9 },
   reef2: { p: [WORLD.reefPos.x + 4, groundHeight(WORLD.reefPos.x + 4, WORLD.reefPos.z + 16) + 5, WORLD.reefPos.z + 16], yaw: Math.PI * 1.0, pitch: -0.15, dist: 7 },
@@ -172,7 +196,7 @@ const SHOTS = {
   overview: { p: [0, 8, -75], yaw: Math.PI, pitch: -0.25, dist: 8 },
   start: { p: [WORLD.start.x, WORLD.start.y, WORLD.start.z], yaw: Math.PI, pitch: -0.12, dist: 7 },
 };
-let shotFrames = 0;
+let shotFrames = 0, shotReadyFrames = 0;
 // clean=1 hides everything that moves: the 'plain blocks' plate that gets painted over
 const CLEAN = params.get('clean') === '1';
 if (SHOT) {
@@ -202,30 +226,41 @@ function frame() {
   elapsed += dt;
   shared.uTime.value = elapsed;
 
-  const ctl = SHOT ? shotControls : controls;
+  const ctl = SHOT || ui.wardrobeOpen ? shotControls : controls;
   ctl.poll();
   if (SHOT && SHOTS[SHOT]?.swim) { player.velocity.set(Math.sin(player.facing) * 6, 0.5, Math.cos(player.facing) * 6); }
-  player.update(dt, playing || SHOT ? ctl : shotControls, !playing && !SHOT);
+  player.update(dt, playing || SHOT ? ctl : shotControls, ui.wardrobeOpen || (!playing && !SHOT));
+  if (ui.wardrobeOpen) {
+    player.model.root.rotation.x = 0;
+    player.model.root.rotation.y = 0;
+    player.model.update(dt, 0, 0);
+    const portrait = innerWidth < innerHeight;
+    const distance = portrait ? 5.2 : 3.2;
+    camera.position.copy(player.position).add(new THREE.Vector3(0, portrait ? 0 : 0.8, distance));
+    camera.lookAt(player.position.x, player.position.y + (portrait ? -1.8 : 0.45), player.position.z);
+    player.focusDist = distance;
+  }
   if (SHOT && SHOTS[SHOT]?.swim) player.position.set(...SHOTS[SHOT].p);
   if (SHOT === 'overview') {
-    camera.position.set(0, 95, -20);
+    camera.position.set(0, 155, -7);
     camera.lookAt(WORLD.cityPos.x, 8, WORLD.cityPos.z);
-    camera.fov = 56;
+    camera.fov = 61;
     camera.updateProjectionMatrix();
     world.group.traverse((o) => { if (o.userData.surface) o.visible = false; });
   }
   world.update(dt, elapsed, camera);
+  city.update(dt, elapsed);
   creatures.update(dt, elapsed, player);
-  if (playing) story.update(dt, elapsed, controls);
-  else story.update(dt, elapsed, shotControls);
+  if (!ui.wardrobeOpen) story.update(dt, elapsed, playing ? controls : shotControls);
 
   // deeper = darker, bluer water
   const depthY = THREE.MathUtils.clamp((WORLD.surfaceY - camera.position.y) / 85, 0, 1);
   fogC.copy(FOG_SHALLOW).lerp(FOG_DEEP, depthY);
   scene.fog.color.copy(fogC);
-  scene.fog.density = 0.004 + depthY * 0.004;
+  scene.fog.density = 0.002 + depthY * 0.0025;
   if (SHOT === 'overview') scene.fog.density = 0.001;
-  hemi.intensity = 3.5 - depthY * 1.4;
+  if (COMPARE) scene.fog.density = 0.0008;
+  hemi.intensity = 2.15 - depthY * 0.55;
 
   projection.updateActive(camera.position);
   post.render(scene, camera, player.focusDist, depthY, elapsed);
@@ -241,7 +276,11 @@ function frame() {
   }
 
   if (CLEAN) hideMovers();
-  if (SHOT && ++shotFrames === 40) window.__shotReady = true;
+  if (SHOT) {
+    shotFrames++;
+    shotReadyFrames = projection.projectors.every((pr) => pr.ready.tex && pr.ready.depth) ? shotReadyFrames + 1 : 0;
+    if (shotFrames >= 40 && shotReadyFrames >= 5) window.__shotReady = true;
+  }
   requestAnimationFrame(frame);
 }
 
@@ -251,4 +290,4 @@ projection.bakeDepth([world.group, city.group]);
 scene.children.forEach((o) => { if (o !== world.group && o !== city.group) brush.applyTo(o, true); });
 document.getElementById('loading').classList.add('hidden');
 requestAnimationFrame(frame);
-window.__game = { player, story, camera, settings, city };
+window.__game = { player, story, camera, settings, city, projection };
