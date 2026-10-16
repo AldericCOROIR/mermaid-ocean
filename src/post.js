@@ -52,11 +52,11 @@ void main(){
   float d = linDepth(vUv);
 
   // circle of confusion: far blur grows slowly, near blur quickly
-  float far = smoothstep(uFocus * 1.8, uFocus * 14.0, d);
+  float far = smoothstep(uFocus * 5.0 + 20.0, uFocus * 30.0 + 120.0, d);
   float near = 1.0 - smoothstep(uFocus * 0.25, uFocus * 0.6, d);
   float coc = clamp(max(far, near * 0.9), 0.0, 1.0);
 
-  vec3 sharp = uPaint > 0.01 ? kuwahara(vUv, px * (1.0 + uPaint * 1.6)) : texture2D(tColor, vUv).rgb;
+  vec3 sharp = uPaint > 0.01 ? kuwahara(vUv, px * (1.0 + uPaint * 0.5)) : texture2D(tColor, vUv).rgb;
 
   vec3 col = sharp;
   if (uDof > 0.0 && coc > 0.02) {

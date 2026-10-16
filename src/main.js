@@ -10,6 +10,9 @@ import { Controls } from './controls.js';
 import { Story, ALBUM } from './quests.js';
 import { UI, Save } from './ui.js';
 import { Post } from './post.js';
+import { PaintProjection } from './projection.js';
+import { Brushwork } from './brushwork.js';
+import { PAINT_VIEWS } from './paintviews.js';
 import { setLang, getLang } from './i18n.js';
 import { initAudio, setSound, sfx } from './audio.js';
 
@@ -32,14 +35,14 @@ if (!['high', 'medium', 'low'].includes(settings.quality)) {
 }
 if (SHOT) settings.quality = params.get('q') || 'high';
 const QUALITY = {
-  high: { ratio: 1.5, scale: 1, dof: 8, paint: 1 },
-  medium: { ratio: 1.25, scale: 0.85, dof: 6, paint: 1 },
+  high: { ratio: 1.5, scale: 1, dof: 4, paint: 1 },
+  medium: { ratio: 1.5, scale: 1, dof: 3, paint: 1 },
   low: { ratio: 1, scale: 1, dof: 0, paint: 0 },
 };
 
 const scene = new THREE.Scene();
 const FOG_SHALLOW = new THREE.Color(0x2a8fbf), FOG_DEEP = new THREE.Color(0x0c3566);
-scene.fog = new THREE.FogExp2(FOG_SHALLOW.clone(), 0.0085);
+scene.fog = new THREE.FogExp2(FOG_SHALLOW.clone(), 0.0045);
 scene.background = FOG_SHALLOW.clone();
 
 const camera = new THREE.PerspectiveCamera(62, 1, 0.3, 1200);
@@ -52,6 +55,14 @@ scene.add(sun);
 
 const world = buildWorld(scene, settings.quality);
 const city = buildCity(scene);
+// Paintings projected back onto the world from the cameras they were painted from.
+const brush = new Brushwork();
+brush.applyTo(world.group);
+brush.applyTo(city.group);
+const projection = new PaintProjection(renderer, scene, PAINT_VIEWS);
+projection.applyTo(world.group);
+projection.applyTo(city.group);
+projection.load();
 const creatures = spawnCreatures(scene);
 const player = new Player(scene, camera);
 const controls = new Controls(canvas);
@@ -68,7 +79,9 @@ function applyQuality() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.ratio));
   post.scale = q.scale;
   post.mat.uniforms.uDof.value = q.dof;
-  post.mat.uniforms.uPaint.value = settings.paint ? q.paint : 0;
+  post.mat.uniforms.uPaint.value = settings.paint ? q.paint * 0.5 : 0;
+  brush.amount.value = settings.paint && params.get('brush') !== '0' && params.get('clean') !== '1' ? 1 : 0;
+  projection.amount.value = settings.paint && params.get('proj') !== '0' && params.get('clean') !== '1' ? 1 : 0;
   post.enabled = settings.quality !== 'low' || settings.paint;
   resize();
 }
@@ -76,7 +89,7 @@ function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
-  camera.fov = w < h ? 75 : 62; // portrait phones see a little more
+  camera.fov = w < h ? 88 : 66; // portrait phones see a little more
   camera.updateProjectionMatrix();
   post.setSize(w, h, renderer.getPixelRatio());
 }
@@ -149,8 +162,14 @@ const SHOTS = {
   mermaid: { p: [10, 18, 40], yaw: Math.PI * 0.75, pitch: 0.0, dist: 4.2, swim: true },
   palace: { p: [0, 7, -110], yaw: Math.PI, pitch: 0.18, dist: 7 },
   face: { p: [10, 18, 40], yaw: Math.PI * 0.75, pitch: 0.05, dist: 3.6, face: true },
+  city2: { p: [-10, 11, -72], yaw: Math.PI - 0.35, pitch: 0.1, dist: 9 },
+  reef2: { p: [WORLD.reefPos.x + 4, groundHeight(WORLD.reefPos.x + 4, WORLD.reefPos.z + 16) + 5, WORLD.reefPos.z + 16], yaw: Math.PI * 1.0, pitch: -0.15, dist: 7 },
+  citytop: { p: [12, 26, -112], yaw: Math.PI + 0.2, pitch: -0.3, dist: 9 },
+  start: { p: [WORLD.start.x, WORLD.start.y, WORLD.start.z], yaw: Math.PI, pitch: -0.12, dist: 7 },
 };
 let shotFrames = 0;
+// clean=1 hides everything that moves: the 'plain blocks' plate that gets painted over
+const CLEAN = params.get('clean') === '1';
 if (SHOT) {
   const s = SHOTS[SHOT] || SHOTS.city;
   player.position.set(...s.p);
@@ -159,6 +178,12 @@ if (SHOT) {
   player.snapCamera();
   if (params.get('paint') === '0') post.mat.uniforms.uPaint.value = 0;
   if (params.get('dof') === '0') post.mat.uniforms.uDof.value = 0;
+  if (params.get('raw') === '1') post.enabled = false; // plain render, no grade or blur
+}
+
+function hideMovers() {
+  const keep = new Set([world.group, city.group]);
+  scene.children.forEach((o) => { if (!keep.has(o) && !o.isLight) o.visible = false; });
 }
 
 // ---------- main loop ----------
@@ -186,7 +211,7 @@ function frame() {
   const depthY = THREE.MathUtils.clamp((WORLD.surfaceY - camera.position.y) / 85, 0, 1);
   fogC.copy(FOG_SHALLOW).lerp(FOG_DEEP, depthY);
   scene.fog.color.copy(fogC);
-  scene.fog.density = 0.0075 + depthY * 0.006;
+  scene.fog.density = 0.004 + depthY * 0.004;
   hemi.intensity = 3.5 - depthY * 1.4;
 
   post.render(scene, camera, player.focusDist, depthY, elapsed);
@@ -201,11 +226,15 @@ function frame() {
     }
   }
 
+  if (CLEAN) hideMovers();
   if (SHOT && ++shotFrames === 40) window.__shotReady = true;
   requestAnimationFrame(frame);
 }
 
 makeThumbs();
+projection.bakeDepth([world.group, city.group]);
+// creatures, mermaids and friends: painted strokes that travel with them
+scene.children.forEach((o) => { if (o !== world.group && o !== city.group) brush.applyTo(o, true); });
 document.getElementById('loading').classList.add('hidden');
 requestAnimationFrame(frame);
 window.__game = { player, story, camera, settings };

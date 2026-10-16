@@ -84,7 +84,8 @@ export function paintMat(opts = {}) {
 // Inject GLSL into a built-in material. Several injections can stack on one
 // material; they are combined into a single onBeforeCompile.
 // hooks: { key, uniforms, vertexHead, vertex (after begin_vertex), worldVertex,
-//          fragmentHead, emissive (after emissivemap), fragment (before dithering) }
+//          fragmentHead, color (after vertex colours), emissive (after emissivemap),
+//          prefinal (before tone mapping), fragment (before dithering) }
 export function inject(material, hooks) {
   const list = material.userData.hooks || (material.userData.hooks = []);
   list.push(hooks);
@@ -92,12 +93,14 @@ export function inject(material, hooks) {
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, shared, ...list.map((h) => h.uniforms || {}));
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', `#include <common>\nuniform float uTime;\nvarying vec3 vWPos;\nvarying vec3 vWNormal;\n${join('vertexHead')}`)
+      .replace('#include <common>', `#include <common>\nuniform float uTime;\nvarying vec3 vWPos;\nvarying vec3 vWNormal;\nvarying vec3 vLPos;\nvarying vec3 vLNormal;\n${join('vertexHead')}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>\n${join('vertex')}`)
-      .replace('#include <project_vertex>', `#include <project_vertex>\n{ vec4 wp = vec4(transformed, 1.0);\n#ifdef USE_INSTANCING\n wp = instanceMatrix * wp;\n#endif\n wp = modelMatrix * wp; vWPos = wp.xyz;\n vec3 wn = normal;\n#ifdef USE_INSTANCING\n wn = mat3(instanceMatrix) * wn;\n#endif\n vWNormal = normalize(mat3(modelMatrix) * wn); }\n${join('worldVertex')}`);
+      .replace('#include <project_vertex>', `#include <project_vertex>\n{ vec4 wp = vec4(transformed, 1.0);\n#ifdef USE_INSTANCING\n wp = instanceMatrix * wp;\n#endif\n wp = modelMatrix * wp; vWPos = wp.xyz; vLPos = transformed; vLNormal = normal;\n vec3 wn = normal;\n#ifdef USE_INSTANCING\n wn = mat3(instanceMatrix) * wn;\n#endif\n vWNormal = normalize(mat3(modelMatrix) * wn); }\n${join('worldVertex')}`);
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\nuniform float uTime;\nvarying vec3 vWPos;\nvarying vec3 vWNormal;\n${CAUSTIC_GLSL}\n${join('fragmentHead')}`)
+      .replace('#include <common>', `#include <common>\nuniform float uTime;\nvarying vec3 vWPos;\nvarying vec3 vWNormal;\nvarying vec3 vLPos;\nvarying vec3 vLNormal;\n${CAUSTIC_GLSL}\n${join('fragmentHead')}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>\n${join('color')}`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n${join('emissive')}`)
+      .replace('#include <tonemapping_fragment>', `${join('prefinal')}\n#include <tonemapping_fragment>`)
       .replace('#include <dithering_fragment>', `${join('fragment')}\n#include <dithering_fragment>`);
   };
   const key = list.map((h) => h.key || '?').join('|');

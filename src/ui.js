@@ -1,6 +1,7 @@
 // DOM HUD: quest pill, counters, speech bubble, toasts, album, settings.
 import { t } from './i18n.js';
 import { ALBUM } from './quests.js';
+import { say } from './audio.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -14,17 +15,21 @@ export class UI {
     $('albumClose').addEventListener('click', () => $('album').classList.add('hidden'));
     $('btnMenu').addEventListener('click', () => { this.renderMenu(); $('menu').classList.remove('hidden'); });
     $('menuClose').addEventListener('click', () => $('menu').classList.add('hidden'));
+    // tap the quest to hear it again
+    $('quest').addEventListener('click', () => say($('questText').textContent));
   }
 
   setQuest(text, pulse) {
     $('questText').textContent = text;
+    if (pulse) say(text, 'narrator', false); // a new goal is read out after the current line
     if (pulse) { const q = $('quest'); q.classList.remove('pulse'); void q.offsetWidth; q.classList.add('pulse'); }
   }
   setCounts(pearls, friends) { $('pearlCount').textContent = pearls; $('friendCount').textContent = friends; }
 
-  bubble(face, name, text) {
+  bubble(face, name, text, who) {
     const b = $('bubble');
     if (!face) { b.classList.add('hidden'); return; }
+    say(text, who);
     $('bubbleFace').textContent = face; $('bubbleName').textContent = name; $('bubbleText').textContent = text;
     b.classList.remove('hidden');
     b.style.animation = 'none'; void b.offsetWidth; b.style.animation = '';
@@ -33,6 +38,7 @@ export class UI {
   toast(text) {
     const el = $('toast');
     el.textContent = text; el.classList.remove('hidden');
+    say(text, 'narrator', false);
     el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
     clearTimeout(this._tt); this._tt = setTimeout(() => el.classList.add('hidden'), 2200);
   }
@@ -42,6 +48,7 @@ export class UI {
     const img = this.thumbs[kind];
     $('friendEmoji').innerHTML = img ? `<img src="${img}" width="96" height="96" alt="">` : '💖';
     $('friendName').textContent = `${t('newFriend')} ${t('names.' + kind)}`;
+    say($('friendName').textContent, 'narrator', false);
     el.classList.remove('hidden');
     el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
     clearTimeout(this._ft); this._ft = setTimeout(() => el.classList.add('hidden'), 2600);

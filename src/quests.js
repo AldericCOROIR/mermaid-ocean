@@ -272,7 +272,7 @@ export class Story {
   }
   showLine() {
     const [who, key] = this.dialog[0];
-    this.ctx.ui.bubble(FACES[who] || '🧜‍♀️', who === 'whale' ? t('names.whale') : t('npc.' + who), t('talk.' + key));
+    this.ctx.ui.bubble(FACES[who] || '🧜‍♀️', who === 'whale' ? t('names.whale') : t('npc.' + who), t('talk.' + key), who);
     sfx('talk');
   }
   advanceDialog() {
@@ -382,7 +382,7 @@ export class Story {
         c.mesh.material.emissive.set(0x6fd8ff); c.mesh.material.color.set(0xd0f6ff);
         sfx('chime'); this.ctx.ui.toast(t('crystal'));
         this.bursts.emit(c.mesh.position, 30, 'spark', 0x8fe3ff, 8);
-        if (this.state.crystals.length >= 3) { this.celebrate(P); this.ctx.ui.bubble(FACES.shelly, t('npc.shelly'), t('talk.shellyDone')); this.dialog = [['shelly', 'shellyDone']]; this.dialogFor = null; this.setStage('finale'); }
+        if (this.state.crystals.length >= 3) { this.celebrate(P); this.ctx.ui.bubble(FACES.shelly, t('npc.shelly'), t('talk.shellyDone'), 'shelly'); this.dialog = [['shelly', 'shellyDone']]; this.dialogFor = null; this.setStage('finale'); }
         else { this.ctx.save.write(); this.refreshQuest(true); }
       }
     }

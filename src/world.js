@@ -54,6 +54,7 @@ function buildSky() {
   const mesh = new THREE.Mesh(geo, m);
   mesh.frustumCulled = false;
   mesh.renderOrder = -10;
+  mesh.userData.sky = true;
   mesh.onBeforeRender = (r, s, cam) => mesh.position.copy(cam.position);
   return mesh;
 }
@@ -114,6 +115,7 @@ function buildSurface() {
   const mesh = new THREE.Mesh(geo, m);
   mesh.position.y = WORLD.surfaceY;
   mesh.renderOrder = 2;
+  mesh.userData.surface = true;
   return mesh;
 }
 

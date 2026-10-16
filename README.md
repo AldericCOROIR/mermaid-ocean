@@ -4,7 +4,11 @@ A gentle 3D underwater fairy-tale adventure for young children (made for a 6-yea
 
 ## Play
 
-Open `index.html` through any static web server (phones: turn sideways):
+**Play online:** https://aldericcoroir.github.io/mermaid-ocean/ (always the latest version on `main`).
+
+Or run it locally:
+
+Open `index.html` through any static web server:
 
 ```sh
 python3 -m http.server 8123   # then open http://<your-computer-ip>:8123
@@ -20,7 +24,17 @@ Controls: left thumb = floating joystick, drag anywhere else to look around, ⬆
 - **Creatures** (`src/creatures.js`): fish schools (clownfish, blue tang, sunny fish, angelfish) that scatter around you, whale, dolphins that leap, seahorses, crabs, jellyfish, sea turtle, manta rays, pufferfish that puff up, octopus.
 - **Story** (`src/quests.js`): meet Queen Coralie → find 5 magic pearls (crown reward) → bring baby seahorse Lulu home → sing with the whale → light the 3 crystals in the Deep Trench → rainbow tail. A sparkle trail and floating star always show the way. Swim near any creature to add it to the friends album 📖.
 - **Look** (`src/post.js`): one full-screen pass with depth of field focused on the mermaid, a Kuwahara painterly filter, soft ink edges, canvas grain and an underwater grade. Toggle in ⚙️.
-- English & French (auto from the phone language), procedural sound, progress saved on the device, automatic quality drop on slow phones.
+- **Voice** (`src/audio.js`): every line, new goal, pearl and new friend is read aloud by the browser's speech voice (pitch per character) so children who can't read yet can follow the quest; tap the ⭐ quest pill to hear the goal again. No music or sound effects.
+- English & French (auto from the phone language), progress saved on the device, automatic quality drop on slow phones.
+
+## Painted look
+
+Two layers make the 3D world look hand-painted:
+
+1. **Painted surfaces** (`src/brushwork.js`): seamless painted tiles in `assets/swatch/` (sand, rock, coral, kelp, shell, brush strokes, generated with Codex/GPT Image from the concept frames) are laid on every object with triplanar mapping and tinted by the object's colour. Moving creatures carry their strokes with them.
+2. **Projected paintings** (`src/projection.js`): following the r/aigamedev "paint over the blocks, project it back" process: clean plates of the plain world (`plates/`, `?shot=NAME&clean=1&raw=1`) were painted over by Codex (`painted/plate_*.png`), aligned to the plate (`painted/aligned_*.png`) and projected back from the exact same camera (`src/paintviews.js`). They show near the spot each one was painted from.
+
+Rebuild helpers: `tools/make_paintviews.py` (plates/cams.json + paintings → `src/paintviews.js` and `assets/paint/`), `tools/make_swatches.py` (paintings → seamless tiles and `src/swatches.js`).
 
 ## Screenshots & painterly concept pass
 
