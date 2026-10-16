@@ -4,7 +4,7 @@ A gentle 3D underwater fairy-tale adventure for young children (made for a 6-yea
 
 ## Play
 
-**Play online:** https://aldericcoroir.github.io/mermaid-ocean/ (always the latest version on `main`).
+**Play online:** https://aldericcoroir.github.io/mermaid-ocean/ (always the latest version on `main`, rebuilt by GitHub Pages on every push).
 
 Or run it locally:
 
