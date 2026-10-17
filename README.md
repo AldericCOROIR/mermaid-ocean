@@ -6,6 +6,8 @@ A gentle 3D underwater fairy-tale adventure for young children (made for a 6-yea
 
 **Play online:** https://aldericcoroir.github.io/mermaid-ocean/ (always the latest version on `main`, rebuilt by GitHub Pages on every push).
 
+**Offline (plane, no signal):** open the link once with internet and wait for the title screen; the whole game is then saved on the phone. Add it to the home screen (Chrome menu ⋮ → *Add to home screen* / *Install app*; iPhone Safari Share → *Add to Home Screen*) and it opens with no network.
+
 Or run it locally:
 
 Open `index.html` through any static web server:

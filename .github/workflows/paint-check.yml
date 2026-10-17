@@ -15,3 +15,9 @@ jobs:
       - run: npm install --no-save playwright@1.56.1 && npx playwright install --with-deps chromium
       - run: python3 -m http.server 8123 &
       - run: node tools/check_paint.mjs
+  offline-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: sw.js lists every current game file
+        run: python3 tools/make_sw.py && git diff --exit-code sw.js || (echo "Run python3 tools/make_sw.py and commit sw.js" && exit 1)

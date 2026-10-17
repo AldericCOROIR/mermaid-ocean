@@ -9,6 +9,7 @@
 <title>Mermaid Ocean</title>
 <link rel="icon" href="icon.svg">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="src/style.css">
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.min.js" } }
@@ -85,5 +86,6 @@
 <div id="loading">🫧</div>
 
 <script type="module" src="src/main.js"></script>
+<script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');</script>
 </body>
 </html>
