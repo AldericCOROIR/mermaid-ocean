@@ -25,8 +25,15 @@ export class UI {
     });
     $('btnMenu').addEventListener('click', () => { this.renderMenu(); $('menu').classList.remove('hidden'); });
     $('menuClose').addEventListener('click', () => $('menu').classList.add('hidden'));
-    // tap the quest to hear it again
-    $('quest').addEventListener('click', () => say($('questText').textContent));
+    // tap a quest to follow its sparkle trail and hear it again
+    $('quest').addEventListener('click', () => { this.onTrack?.('main'); say($('questText').textContent); });
+    $('sideQuest').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-id]');
+      if (!b) return;
+      e.stopPropagation();
+      this.onTrack?.(b.dataset.id);
+      say(this._sideTexts?.[b.dataset.id]);
+    });
   }
 
   setQuest(text, pulse) {
@@ -66,9 +73,17 @@ export class UI {
 
   actionReady(on) { $('btnAct').classList.toggle('ready', on); $('btnAct').textContent = on ? '💬' : '✨'; }
 
-  setSideQuest(text) {
-    $('sideQuest').textContent = text ? `✨ ${text}` : '';
-    $('sideQuest').classList.toggle('hidden', !text);
+  // One tappable pill per side quest; the tracked quest (main or side) is highlighted
+  // and its sparkle trail is the one shown in the world.
+  setSideQuests(list, tracked) {
+    const box = $('sideQuest');
+    const hex = (c) => '#' + c.toString(16).padStart(6, '0');
+    box.innerHTML = list.map((q) => `<button class="pill side${q.id === tracked ? ' tracked' : ''}" data-id="${q.id}">`
+      + `<span class="dot" style="background:${hex(q.color)}"></span><span class="ico">${q.icon}</span><span class="txt"></span></button>`).join('');
+    box.querySelectorAll('button').forEach((b, i) => { b.querySelector('.txt').textContent = list[i].text; });
+    box.classList.toggle('hidden', !list.length);
+    $('quest').classList.toggle('tracked', tracked === 'main' && list.length > 0);
+    this._sideTexts = Object.fromEntries(list.map((q) => [q.id, q.text]));
   }
 
   openWardrobe() {

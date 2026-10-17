@@ -9,6 +9,8 @@ import { sfx } from './audio.js';
 
 export const STAGES = ['meet', 'pearls', 'backQueen', 'baby', 'bringBaby', 'whale', 'shelly', 'crystals', 'finale', 'free'];
 export const ALBUM = ['clownfish', 'tang', 'yellowfish', 'angelfish', 'seahorse', 'crab', 'puffer', 'octopus', 'jellyfish', 'turtle', 'manta', 'dolphin', 'whale', 'mermaid', 'guard'];
+const SIDE_IDS = ['tailor', 'keeper', 'bard'];
+const TRAIL_COLORS = { main: 0xfff3a0, tailor: 0xff8fd0, keeper: 0x7ff0ff, bard: 0xc49bff };
 const FACES = { marina: '🧜‍♀️', queen: '👸', guard: '🔱', coral: '🧜🏾‍♀️', pearl: '🧜‍♀️', mama: '💛', baby: '🍼', shelly: '🐢', whale: '🐋', tailor: '🧵', baker: '🧁', keeper: '⛲', bard: '🎶', librarian: '📚', fairy: '🧚' };
 
 function starTexture() {
@@ -96,6 +98,7 @@ export class Story {
     this.scene = scene;
     this.ctx = ctx; // { player, city, creatures, ui, save }
     this.state = ctx.save.state;
+    this.tracked = 'main'; // which quest the sparkle trail follows
     this.npcs = [];
     this.bursts = new Bursts(scene);
     this.dialog = null;
@@ -245,16 +248,37 @@ export class Story {
     this.refreshSideQuest();
   }
 
-  refreshSideQuest() {
+  // Side quests in progress, each with its own goal text and trail colour.
+  sideList() {
     const q = this.state.sideQuests || {};
-    const active = ['tailor', 'keeper', 'bard'].find((id) => q[id] === 'active' || q[id] === 'ready');
-    this.ctx.ui.setSideQuest(active ? t('side.' + active + (q[active] === 'ready' ? 'Return' : 'Goal')) : '');
+    return SIDE_IDS.filter((id) => q[id] === 'active' || q[id] === 'ready')
+      .map((id) => ({ id, text: t('side.' + id + (q[id] === 'ready' ? 'Return' : 'Goal')), color: TRAIL_COLORS[id], icon: FACES[id] }));
+  }
+
+  refreshSideQuest() {
+    const list = this.sideList();
+    if (this.tracked !== 'main' && !list.some((x) => x.id === this.tracked)) this.tracked = 'main';
+    if (this.tracked === 'main' && !this.target() && list.length) this.tracked = list[0].id; // main story done: follow a side quest
+    this.ctx.ui.setSideQuests(list, this.tracked);
+  }
+
+  // Which quest the sparkle trail follows: 'main' or a side quest id (tap a quest to switch).
+  track(id) {
+    this.tracked = id === 'main' || this.sideList().some((x) => x.id === id) ? id : 'main';
+    this.refreshSideQuest();
+  }
+
+  sideTarget(id) {
+    const q = this.state.sideQuests, S = this.ctx.city.spots;
+    if (q[id] === 'active') return { tailor: S.fountain, keeper: S.bridgeWest, bard: S.bridgeEast }[id] || null;
+    if (q[id] === 'ready') return this.npcs.find((n) => n.id === id)?.root.position || null;
+    return null;
   }
 
   sideQuest(id) {
     const q = this.state.sideQuests;
     if (!q[id]) {
-      q[id] = 'active'; this.ctx.save.write(); this.refreshSideQuest();
+      q[id] = 'active'; this.ctx.save.write(); this.tracked = id; this.refreshSideQuest();
       return [[id, id + 'Quest']];
     }
     if (q[id] === 'ready') {
@@ -458,8 +482,12 @@ export class Story {
       if (c.pos.distanceTo(P) < r) this.befriend(c.kind, c.pos.clone(), c);
     }
 
-    // guide: star above the target + a flowing sparkle path from the player
-    const tgt = this.target();
+    // guide: star above the target + a flowing sparkle path from the player,
+    // for whichever quest is tracked (gold = main story, own colour per side quest)
+    const tgt = this.tracked === 'main' ? this.target() : this.sideTarget(this.tracked);
+    const trailColor = this.tracked === 'main' ? TRAIL_COLORS.main : TRAIL_COLORS[this.tracked];
+    this.trail.forEach((s) => s.material.color.setHex(trailColor));
+    this.marker.material.color.setHex(this.tracked === 'main' ? 0xffffff : trailColor);
     this.marker.visible = !!tgt;
     this.trail.forEach((s) => (s.visible = !!tgt));
     if (tgt) {

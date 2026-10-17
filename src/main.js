@@ -72,6 +72,7 @@ ui.settings = settings;
 ui.getFriends = () => save.state.friends;
 const story = new Story(scene, { player, city, creatures, ui, save });
 ui.onBubbleOk = () => story.advanceDialog();
+ui.onTrack = (id) => story.track(id);
 ui.getWardrobe = () => ({ unlocked: save.state.unlocked, outfit: save.state.outfit });
 ui.onWardrobeSelect = (category, item) => {
   if (!['tail', 'top', 'head'].includes(category) || !save.state.unlocked.includes(item)) return;
