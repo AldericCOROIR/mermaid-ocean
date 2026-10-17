@@ -2,28 +2,37 @@
 import * as THREE from 'three';
 import { WORLD, groundHeight, glowTexture, canvasTexture, rr } from './util.js';
 import { MerModel, PALETTES } from './mermaid.js';
-import { seahorseModel, turtleModel } from './creatures.js';
+import { seahorseModel, turtleModel, octopusModel, dolphinModel, whaleModel } from './creatures.js';
 import { paintMat } from './geom.js';
+import { collide } from './world.js';
 import { t } from './i18n.js';
 import { sfx } from './audio.js';
 
 export const STAGES = ['meet', 'pearls', 'backQueen', 'baby', 'bringBaby', 'whale', 'shelly', 'crystals', 'finale', 'free'];
-export const ALBUM = ['clownfish', 'tang', 'yellowfish', 'angelfish', 'seahorse', 'crab', 'puffer', 'octopus', 'jellyfish', 'turtle', 'manta', 'dolphin', 'whale', 'mermaid', 'guard'];
-const SIDE_IDS = ['tailor', 'keeper', 'bard'];
-const TRAIL_COLORS = { main: 0xfff3a0, tailor: 0xff8fd0, keeper: 0x7ff0ff, bard: 0xc49bff };
-const FACES = { marina: '🧜‍♀️', queen: '👸', guard: '🔱', coral: '🧜🏾‍♀️', pearl: '🧜‍♀️', mama: '💛', baby: '🍼', shelly: '🐢', whale: '🐋', tailor: '🧵', baker: '🧁', keeper: '⛲', bard: '🎶', librarian: '📚', fairy: '🧚' };
+export const ALBUM = ['clownfish', 'tang', 'yellowfish', 'angelfish', 'seahorse', 'crab', 'puffer', 'octopus', 'jellyfish', 'turtle', 'manta', 'dolphin', 'whale', 'narwhal', 'seaBunny', 'starfish', 'otter', 'mermaid', 'guard'];
+// Baby animals who need help: collect their things, bring them back, win a hairstyle.
+const BABIES = {
+  tico: { kind: 'turtle', count: 3, item: 'grape', reward: ['braids', 'hair'], radius: 2.8 },
+  pip: { kind: 'octopus', count: 4, item: 'toy', reward: ['buns', 'hair'], radius: 2.8 },
+  splash: { kind: 'dolphin', count: 4, item: 'ring', reward: ['ponytail', 'hair'], radius: 3.2 },
+  momo: { kind: 'whale', count: 3, item: 'star', reward: ['bob', 'hair'], radius: 3 },
+};
+const SIDE_IDS = ['tailor', 'keeper', 'bard', ...Object.keys(BABIES)];
+const TRAIL_COLORS = { main: 0xfff3a0, tailor: 0xff8fd0, keeper: 0x7ff0ff, bard: 0xc49bff,
+  tico: 0x9dff8a, pip: 0xffa860, splash: 0x5fa8ff, momo: 0xff7a8a };
+const FACES = { marina: '🧜‍♀️', queen: '👸', guard: '🔱', coral: '🧜🏾‍♀️', pearl: '🧜‍♀️', mama: '💛', baby: '🍼', shelly: '🐢', whale: '🐋', tailor: '🧵', baker: '🧁', keeper: '⛲', bard: '🎶', librarian: '📚', fairy: '🧚', tico: '🐢', pip: '🐙', splash: '🐬', momo: '🐳', citizen: '🧜‍♀️', activity: '🧜🏼‍♀️', ambientSeahorse: '🌊' };
 
-function starTexture() {
+function starTexture(fill = '#ffe066', halo = ['rgba(255,250,200,0.9)', 'rgba(255,220,120,0)']) {
   return canvasTexture(128, 128, (g) => {
     const grd = g.createRadialGradient(64, 64, 4, 64, 64, 64);
-    grd.addColorStop(0, 'rgba(255,250,200,0.9)'); grd.addColorStop(1, 'rgba(255,220,120,0)');
+    grd.addColorStop(0, halo[0]); grd.addColorStop(1, halo[1]);
     g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
     g.beginPath();
     for (let i = 0; i <= 10; i++) {
       const a = -Math.PI / 2 + (i / 10) * Math.PI * 2, r = i % 2 ? 18 : 44;
       g.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r);
     }
-    g.fillStyle = '#ffe066'; g.fill();
+    g.fillStyle = fill; g.fill();
     g.lineWidth = 5; g.strokeStyle = '#fff'; g.stroke();
   });
 }
@@ -93,12 +102,52 @@ function clamModel() {
   return g;
 }
 
+function babyItemModel(item) {
+  const g = new THREE.Group();
+  const glowCol = { grape: 0xd59bff, toy: 0xffc0a0, ring: 0xbff0ff, star: 0xffe680 }[item];
+  if (item === 'grape') {
+    const m = paintMat({ color: 0x9a5bdc, emissive: 0x3a1a60 });
+    [[0, 0.5, 0], [-0.25, 0.25, 0.1], [0.25, 0.25, 0.1], [0, 0.25, -0.2], [-0.12, 0, 0], [0.12, 0, 0.05], [0, -0.22, 0]]
+      .forEach(([x, y, z]) => { const b = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), m); b.position.set(x, y, z); g.add(b); });
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), paintMat({ color: 0x5fcf6a, emissive: 0x103010 }));
+    leaf.scale.set(1.4, 0.3, 0.7); leaf.position.set(0.15, 0.75, 0); g.add(leaf);
+  } else if (item === 'toy') {
+    const shellGeo = new THREE.ConeGeometry(0.35, 0.9, 12, 6);
+    const sp = shellGeo.attributes.position;
+    for (let i = 0; i < sp.count; i++) { const y = sp.getY(i); const k = 1 + 0.15 * Math.sin(y * 18); sp.setX(i, sp.getX(i) * k); sp.setZ(i, sp.getZ(i) * k); }
+    shellGeo.computeVertexNormals();
+    const shell = new THREE.Mesh(shellGeo, paintMat({ color: 0xffa0b8, emissive: 0x502030 }));
+    shell.rotation.z = 0.5; g.add(shell);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), paintMat({ color: 0xfff08a, emissive: 0x504010 }));
+    ball.position.set(0.35, -0.3, 0.1); g.add(ball);
+  } else if (item === 'ring') {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.18, 8, 24), paintMat({ color: 0xc8f4ff, emissive: 0x4a90b0 }));
+    g.add(ring);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), paintMat({ color: 0xffffff, emissive: 0x6090b0 }));
+      b.position.set(Math.cos(a) * 1.6, Math.sin(a) * 1.6, 0.15); g.add(b);
+    }
+  } else {
+    const shape = new THREE.Shape();
+    for (let i = 0; i <= 10; i++) { const a = (i / 10) * Math.PI * 2 + Math.PI / 2, r = i % 2 ? 0.25 : 0.6; i ? shape.lineTo(Math.cos(a) * r, Math.sin(a) * r) : shape.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.08, bevelSegments: 2 });
+    geo.center();
+    g.add(new THREE.Mesh(geo, paintMat({ color: 0xffe066, emissive: 0x806010 })));
+  }
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: glowCol, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
+  glow.scale.setScalar(item === 'ring' ? 6 : 3); g.add(glow);
+  g.userData.glow = glow;
+  return g;
+}
+
 export class Story {
   constructor(scene, ctx) {
     this.scene = scene;
     this.ctx = ctx; // { player, city, creatures, ui, save }
     this.state = ctx.save.state;
     this.tracked = 'main'; // which quest the sparkle trail follows
+    this.sideShown = null; // which side quest the side panel shows
     this.npcs = [];
     this.bursts = new Bursts(scene);
     this.dialog = null;
@@ -107,6 +156,7 @@ export class Story {
     this.buildNPCs();
     this.buildPearls();
     this.buildCrystals();
+    this.buildBabies();
     this.buildGuide();
     this.applyRewards();
     this.refreshQuest();
@@ -134,20 +184,25 @@ export class Story {
     this.addNPC('coral', new MerModel(PALETTES.coral), S.citizens[0]);
     this.addNPC('pearl', new MerModel(PALETTES.pearl), S.citizens[3]);
     // swimming citizens without dialogue
-    this.addNPC('citizen', new MerModel(PALETTES.pearl), S.citizens[1]);
-    this.addNPC('citizen', new MerModel(PALETTES.marina), S.citizens[2]);
+    this.addNPC('citizen', new MerModel(PALETTES.pearl), S.citizens[1]).line = 'citizen1';
+    this.addNPC('citizen', new MerModel(PALETTES.marina), S.citizens[2]).line = 'citizen2';
     for (const r of S.residents) {
       const m = new MerModel(PALETTES[r.color]);
       if (r.id === 'fairy') m.setHeadwear('pearlTiara');
       if (r.id === 'bard') m.setHeadwear('coralClip');
       this.addNPC(r.id, m, r.pos);
     }
+    const seen = {};
     for (const a of S.activities) {
       const n = this.addNPC('activity', new MerModel(PALETTES[a.color]), a.pos, false);
       n.activity = a.kind;
+      const k = seen[a.kind] = (seen[a.kind] || 0) + 1; // each one says something different
+      n.line = a.kind + (a.kind === 'market' ? ((k - 1) % 3) + 1 : a.kind === 'court' ? ((k - 1) % 2) + 1 : '');
     }
-    S.seahorses.forEach((p, i) =>
-      this.addNPC('ambientSeahorse', { root: seahorseModel(i ? 0xffc784 : 0x9be6ff, 1.6) }, p, false));
+    S.seahorses.forEach((p, i) => {
+      const n = this.addNPC('ambientSeahorse', { root: seahorseModel(i ? 0xffc784 : 0x9be6ff, 1.6) }, p, false);
+      n.friendKind = 'seahorse'; n.line = 'seahorse' + ((i % 2) + 1);
+    });
     const mamaPos = S.garden;
     this.mama = this.addNPC('mama', { root: seahorseModel(0xff9fcf, 2.2) }, mamaPos);
     const kp = WORLD.kelpPos;
@@ -156,6 +211,40 @@ export class Story {
     const sx = T.x - 25, sz = T.z - 55;
     const shellyModel = turtleModel(); shellyModel.scale.setScalar(1.6);
     this.shelly = this.addNPC('shelly', { root: shellyModel }, new THREE.Vector3(sx, groundHeight(sx, sz) + 5, sz));
+    // every animal counts for the album, wherever it lives
+    this.mama.friendKind = this.baby.friendKind = 'seahorse';
+    this.shelly.friendKind = 'turtle';
+  }
+
+  // Baby animals with their own little missions, and the things they ask for.
+  buildBabies() {
+    const gh = (x, z, up) => new THREE.Vector3(x, groundHeight(x, z) + up, z);
+    const K = WORLD.kelpPos, R = WORLD.reefPos, T = WORLD.trenchPos, st = WORLD.start;
+    const tico = turtleModel(); tico.scale.setScalar(0.55);
+    const pip = octopusModel(0xff9fd0); pip.scale.setScalar(0.6);
+    const splash = dolphinModel(); splash.scale.setScalar(0.7);
+    const momo = whaleModel(); momo.scale.setScalar(0.22);
+    const where = {
+      tico: [tico, gh(K.x + 22, K.z + 12, 3), [gh(K.x - 8, K.z + 2, 2.6), gh(K.x + 6, K.z - 22, 2.6), gh(K.x - 25, K.z - 10, 2.6)]],
+      pip: [pip, gh(R.x - 12, R.z + 14, 0.6), [gh(R.x + 8, R.z + 4, 2.4), gh(R.x - 4, R.z - 14, 2.4), gh(R.x + 18, R.z - 6, 2.4), gh(R.x - 20, R.z + 2, 2.4)]],
+      splash: [splash, new THREE.Vector3(st.x - 10, st.y - 4, st.z - 4), [0, 1, 2, 3].map((i) => new THREE.Vector3(st.x - 20 - i * 9, st.y - 6 + Math.sin(i) * 3, st.z - 18 - i * 6))],
+      momo: [momo, gh(T.x - 35, T.z - 30, 8), [gh(T.x - 5, T.z + 5, 2), gh(T.x + 20, T.z - 15, 2), gh(T.x - 22, T.z + 18, 2)]],
+    };
+    this.state.sideItems ||= {};
+    this.babyItems = {};
+    for (const [id, [model, pos, spots]] of Object.entries(where)) {
+      const n = this.addNPC(id, { root: model }, pos);
+      n.friendKind = BABIES[id].kind;
+      const got = this.state.sideItems[id] || [];
+      this.babyItems[id] = spots.map((p, i) => {
+        const g = babyItemModel(BABIES[id].item);
+        collide(p, 1.6); // never inside a rock or coral, so it can always be reached
+        g.position.copy(p);
+        if (BABIES[id].item === 'ring') g.lookAt(p.clone().add(new THREE.Vector3(1, 0, 0.6)));
+        this.scene.add(g);
+        return { i, g, got: got.includes(i) };
+      });
+    }
   }
 
   buildPearls() {
@@ -198,6 +287,20 @@ export class Story {
     this.trail = [];
     const m = new THREE.SpriteMaterial({ map: glowTexture(), color: 0xfff3a0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
     for (let i = 0; i < 14; i++) { const s = new THREE.Sprite(m.clone()); s.scale.setScalar(0.7); this.scene.add(s); this.trail.push(s); }
+    // a blue star floats over everyone who has a quest to give (or a reward waiting)
+    const blue = new THREE.SpriteMaterial({ map: starTexture('#5fb4ff', ['rgba(200,235,255,0.9)', 'rgba(120,190,255,0)']), transparent: true, depthWrite: false, fog: false });
+    this.giverStars = this.npcs.filter((n) => SIDE_IDS.includes(n.id)).map((n) => {
+      const s = new THREE.Sprite(blue);
+      s.renderOrder = 19; s.scale.setScalar(2.2);
+      const box = new THREE.Box3().setFromObject(n.root);
+      this.scene.add(s);
+      return { n, s, h: box.max.y - n.root.position.y + 1.1 };
+    });
+  }
+
+  updateGiverStars() {
+    const q = this.state.sideQuests || {};
+    for (const g of this.giverStars || []) g.s.visible = !q[g.n.id] || q[g.n.id] === 'ready';
   }
 
   applyRewards() {
@@ -252,24 +355,32 @@ export class Story {
   sideList() {
     const q = this.state.sideQuests || {};
     return SIDE_IDS.filter((id) => q[id] === 'active' || q[id] === 'ready')
-      .map((id) => ({ id, text: t('side.' + id + (q[id] === 'ready' ? 'Return' : 'Goal')), color: TRAIL_COLORS[id], icon: FACES[id] }));
+      .map((id) => ({ id, text: t('side.' + id + (q[id] === 'ready' ? 'Return' : 'Goal'), { n: (this.state.sideItems?.[id] || []).length }), color: TRAIL_COLORS[id], icon: FACES[id] }));
   }
 
   refreshSideQuest() {
     const list = this.sideList();
     if (this.tracked !== 'main' && !list.some((x) => x.id === this.tracked)) this.tracked = 'main';
-    if (this.tracked === 'main' && !this.target() && list.length) this.tracked = list[0].id; // main story done: follow a side quest
-    this.ctx.ui.setSideQuests(list, this.tracked);
+    if (!list.some((x) => x.id === this.sideShown)) this.sideShown = list[0]?.id || null;
+    if (this.tracked === 'main' && !this.target() && list.length) this.tracked = this.sideShown; // main story done: follow a side quest
+    this.ctx.ui.setSideQuests(list, this.tracked, this.sideShown);
+    this.updateGiverStars?.();
   }
 
   // Which quest the sparkle trail follows: 'main' or a side quest id (tap a quest to switch).
   track(id) {
     this.tracked = id === 'main' || this.sideList().some((x) => x.id === id) ? id : 'main';
+    if (this.tracked !== 'main') this.sideShown = this.tracked;
     this.refreshSideQuest();
   }
 
   sideTarget(id) {
     const q = this.state.sideQuests, S = this.ctx.city.spots;
+    if (q[id] === 'active' && BABIES[id]) {
+      const P = this.ctx.player.position;
+      const left = this.babyItems[id].filter((x) => !x.got).sort((a, b) => a.g.position.distanceTo(P) - b.g.position.distanceTo(P));
+      return left[0]?.g.position || null;
+    }
     if (q[id] === 'active') return { tailor: S.fountain, keeper: S.bridgeWest, bard: S.bridgeEast }[id] || null;
     if (q[id] === 'ready') return this.npcs.find((n) => n.id === id)?.root.position || null;
     return null;
@@ -278,12 +389,12 @@ export class Story {
   sideQuest(id) {
     const q = this.state.sideQuests;
     if (!q[id]) {
-      q[id] = 'active'; this.ctx.save.write(); this.tracked = id; this.refreshSideQuest();
+      q[id] = 'active'; this.ctx.save.write(); this.tracked = this.sideShown = id; this.refreshSideQuest();
       return [[id, id + 'Quest']];
     }
     if (q[id] === 'ready') {
       q[id] = 'done';
-      const reward = { tailor: ['coralClip', 'head'], keeper: ['seaGlass', 'top'], bard: ['sapphire', 'tail'] }[id];
+      const reward = BABIES[id]?.reward || { tailor: ['coralClip', 'head'], keeper: ['seaGlass', 'top'], bard: ['sapphire', 'tail'] }[id];
       this.unlockCosmetic(...reward);
       this.celebrate(this.ctx.player.position);
       this.refreshSideQuest();
@@ -298,9 +409,10 @@ export class Story {
     const L = (...keys) => keys.map((k) => [id, k]);
     if (id === 'marina') return s === 'meet' ? L('marina1', 'marina2') : L('marina2');
     if (id === 'guard') return L('guard');
+    if (npc.line) return [[id, npc.line]];
     if (id === 'coral') return L('coral');
     if (id === 'pearl') return L('pearl');
-    if (['tailor', 'keeper', 'bard'].includes(id)) return this.sideQuest(id);
+    if (['tailor', 'keeper', 'bard'].includes(id) || BABIES[id]) return this.sideQuest(id);
     if (['baker', 'librarian', 'fairy'].includes(id)) return L(id);
     if (id === 'queen') {
       if (s === 'meet') { this.setStage('pearls'); return L('queen1', 'queen2'); }
@@ -318,17 +430,18 @@ export class Story {
       }
       if (s === 'pearls') return L('queen2');
       if (s === 'free') return L('free');
-      return null;
+      return L('queenWait');
     }
     if (id === 'baby' && s === 'baby') { this.setStage('bringBaby'); this.babyFollow = true; return L('baby'); }
+    if (id === 'baby') return L(s === 'bringBaby' ? 'babyFollow' : STAGES.indexOf(s) > STAGES.indexOf('bringBaby') ? 'babyHome' : 'babyHide');
     if (id === 'mama') {
       if (s === 'bringBaby') { this.babyFollow = false; this.babyHome = true; this.celebrate(npc.root.position); this.setStage('whale'); return L('mama', 'mamaNext'); }
-      return null;
+      return L(STAGES.indexOf(s) > STAGES.indexOf('bringBaby') ? 'mamaHappy' : 'mamaWorried');
     }
     if (id === 'shelly') {
       if (s === 'shelly') { this.setStage('crystals'); return L('shelly'); }
       if (s === 'crystals') return L('shelly');
-      return null;
+      return L(STAGES.indexOf(s) > STAGES.indexOf('crystals') ? 'shellyDone' : 'shellyHello');
     }
     if (id === 'whale' && s === 'whale') { sfx('whale'); this.setStage('shelly'); return [['whale', 'whale'], ['whale', 'whaleNext']]; }
     return null;
@@ -377,6 +490,27 @@ export class Story {
     if (sq.tailor === 'active' && P.distanceTo(S.fountain) < 11) ready('tailor');
     if (sq.keeper === 'active' && P.distanceTo(S.bridgeWest) < 11) ready('keeper');
     if (sq.bard === 'active' && P.distanceTo(S.bridgeEast) < 11) ready('bard');
+    for (const g of this.giverStars) if (g.s.visible) {
+      g.s.position.copy(g.n.root.position); g.s.position.y += g.h + Math.sin(time * 2.5 + g.h) * 0.25;
+    }
+    // baby missions: things to pick up (or bubble rings to swim through)
+    for (const [id, items] of Object.entries(this.babyItems)) {
+      const on = sq[id] === 'active';
+      for (const it of items) {
+        it.g.visible = on && !it.got;
+        if (!it.g.visible) continue;
+        if (BABIES[id].item !== 'ring') { it.g.rotation.y += dt * 1.2; it.g.position.y += Math.sin(time * 2 + it.i) * 0.004; }
+        it.g.userData.glow.material.opacity = 0.55 + Math.sin(time * 3 + it.i) * 0.2;
+        if (it.g.position.distanceTo(P) < BABIES[id].radius) {
+          it.got = true; it.g.visible = false;
+          (this.state.sideItems[id] ||= []).push(it.i);
+          this.bursts.emit(it.g.position.clone(), 16, 'spark', TRAIL_COLORS[id], 5);
+          const n = this.state.sideItems[id].length;
+          if (n >= BABIES[id].count) ready(id);
+          else { this.ctx.save.write(); this.refreshSideQuest(); this.ctx.ui.toast(`${t('side.' + id + 'Goal', { n })}`); }
+        }
+      }
+    }
 
     // NPC idle animation, face the player when near
     let nearest = null, nd = 1e9;
@@ -405,10 +539,12 @@ export class Story {
         let dd = want - n.root.rotation.y; dd = Math.atan2(Math.sin(dd), Math.cos(dd));
         n.root.rotation.y += dd * Math.min(1, dt * 3);
       }
-      const r = n.id === 'queen' ? 7 : n.id === 'mama' || n.id === 'shelly' ? 6 : 4.5;
-      if (!['citizen', 'activity', 'ambientSeahorse'].includes(n.id) && d < r && d < nd) { nearest = n; nd = d; }
-      if (d > r + 3) this.greeted.delete(n);
+      const r = n.id === 'queen' ? 7 : ['mama', 'shelly', 'momo'].includes(n.id) ? 6 : 4.5;
+      const rr2 = ['citizen', 'activity', 'ambientSeahorse'].includes(n.id) ? 3.5 : r;
+      if (d < rr2 && d < nd) { nearest = n; nd = d; }
+      if (d > rr2 + 3) this.greeted.delete(n);
       if (d < 10 && n.model instanceof MerModel) this.befriend(n.id === 'guard' ? 'guard' : 'mermaid', n.root.position);
+      if (d < 8 && n.friendKind) this.befriend(n.friendKind, n.root.position);
     }
 
     // the whale counts as a talker during its quest step

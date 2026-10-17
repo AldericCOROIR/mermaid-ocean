@@ -9,6 +9,8 @@ const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
 const VOICES = {
   queen: { pitch: 1.0, rate: 0.85 }, whale: { pitch: 0.5, rate: 0.75 }, guard: { pitch: 0.8, rate: 0.9 },
   shelly: { pitch: 1.6, rate: 0.95 }, baby: { pitch: 1.8, rate: 1.0 }, narrator: { pitch: 1.2, rate: 0.9 },
+  tico: { pitch: 1.9, rate: 0.95 }, pip: { pitch: 2.0, rate: 1.05 }, splash: { pitch: 1.8, rate: 1.1 }, momo: { pitch: 1.1, rate: 0.8 },
+  ambientSeahorse: { pitch: 1.7, rate: 1.0 }, citizen: { pitch: 1.25, rate: 0.95 }, activity: { pitch: 1.45, rate: 0.95 },
 };
 const DEFAULT = { pitch: 1.35, rate: 0.9 };
 

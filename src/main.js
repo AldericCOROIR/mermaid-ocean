@@ -8,12 +8,13 @@ import { MerModel, PALETTES } from './mermaid.js';
 import { Player } from './player.js';
 import { Controls } from './controls.js';
 import { Story, ALBUM } from './quests.js';
+import { Follower } from './follower.js';
 import { UI, Save } from './ui.js';
 import { Post } from './post.js';
 import { PaintProjection } from './projection.js';
 import { Brushwork } from './brushwork.js';
 import { PAINT_VIEWS } from './paintviews.js';
-import { setLang, getLang } from './i18n.js';
+import { setLang, getLang, t } from './i18n.js';
 import { initAudio, setSound, sfx } from './audio.js';
 
 const params = new URLSearchParams(location.search);
@@ -71,11 +72,20 @@ const ui = new UI();
 ui.settings = settings;
 ui.getFriends = () => save.state.friends;
 const story = new Story(scene, { player, city, creatures, ui, save });
+const follower = new Follower(scene, player);
+if (save.state.follower && save.state.friends.includes(save.state.follower)) follower.set(save.state.follower);
+ui.getFollower = () => follower.kind;
+ui.onFollow = (kind) => {
+  const off = follower.kind === kind;
+  follower.set(off ? null : kind);
+  save.state.follower = follower.kind; save.write();
+  ui.toast(t(off ? 'unfollow' : 'follow', { name: t('names.' + kind) }));
+};
 ui.onBubbleOk = () => story.advanceDialog();
 ui.onTrack = (id) => story.track(id);
 ui.getWardrobe = () => ({ unlocked: save.state.unlocked, outfit: save.state.outfit });
 ui.onWardrobeSelect = (category, item) => {
-  if (!['tail', 'top', 'head'].includes(category) || !save.state.unlocked.includes(item)) return;
+  if (!['tail', 'top', 'head', 'hair'].includes(category) || !save.state.unlocked.includes(item)) return;
   save.state.outfit[category] = item;
   player.model.setOutfit(save.state.outfit);
   save.write(); ui.renderWardrobe();
@@ -135,6 +145,7 @@ function makeThumbs() {
     else obj = thumbModel(kind);
     ts.add(obj);
     obj.rotation.y = kind === 'mermaid' || kind === 'guard' ? 0.35 : -0.9;
+    if (kind === 'starfish' || kind === 'otter') obj.rotation.x = 0.9;
     const box = new THREE.Box3().setFromObject(obj);
     const sph = box.getBoundingSphere(new THREE.Sphere());
     tc.position.copy(sph.center).add(new THREE.Vector3(0, sph.radius * 0.25, sph.radius * 3.0));
@@ -255,6 +266,7 @@ function frame() {
   city.update(dt, elapsed);
   creatures.update(dt, elapsed, player);
   if (!ui.wardrobeOpen) story.update(dt, elapsed, playing ? controls : shotControls);
+  follower.update(dt);
 
   // deeper = darker, bluer water
   const depthY = THREE.MathUtils.clamp((WORLD.surfaceY - camera.position.y) / 85, 0, 1);
@@ -294,4 +306,4 @@ projection.bakeDepth([world.group, city.group]);
 scene.children.forEach((o) => { if (o !== world.group && o !== city.group) brush.applyTo(o, true); });
 document.getElementById('loading').classList.add('hidden');
 requestAnimationFrame(frame);
-window.__game = { player, story, camera, settings, city, projection, scene, Brushwork };
+window.__game = { player, story, follower, ui, camera, settings, city, projection, scene, Brushwork };

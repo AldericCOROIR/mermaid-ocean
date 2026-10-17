@@ -230,7 +230,7 @@ class Whale extends Creature {
 }
 
 // ---------- Dolphin ----------
-function dolphinModel() {
+export function dolphinModel() {
   const g = new THREE.Group();
   const geo = new THREE.SphereGeometry(1, 18, 12);
   const p = geo.attributes.position, col = [];
@@ -619,6 +619,195 @@ class Octopus extends Creature {
   }
 }
 
+// ---------- Narwhal: a small speckled whale with a spiral horn ----------
+export function narwhalModel() {
+  const g = new THREE.Group();
+  const body = new THREE.Group(); g.add(body);
+  const geo = new THREE.SphereGeometry(1, 20, 14);
+  const p = geo.attributes.position, col = [];
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const taper = z < 0 ? 1 - Math.pow(-z, 1.5) * 0.7 : 1;
+    p.setXYZ(i, x * 0.75 * taper, y * 0.7 * taper, z * 2);
+    const c = new THREE.Color(0x9fb4d8).lerp(new THREE.Color(0xf4f7ff), THREE.MathUtils.smoothstep(-y, 0, 0.6));
+    if (y > 0.1 && Math.sin(x * 19) * Math.sin(z * 13) > 0.7) c.lerp(new THREE.Color(0x6d82b0), 0.6); // speckles
+    col.push(c.r, c.g, c.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  body.add(new THREE.Mesh(geo, paintMat({ vertexColors: true, emissive: 0x141c30 })));
+  const hornGeo = new THREE.ConeGeometry(0.09, 2, 8, 12);
+  const hp = hornGeo.attributes.position;
+  for (let i = 0; i < hp.count; i++) { const a = hp.getY(i) * 9; const k = 1 + 0.18 * Math.sin(Math.atan2(hp.getZ(i), hp.getX(i)) * 2 + a); hp.setX(i, hp.getX(i) * k); hp.setZ(i, hp.getZ(i) * k); }
+  hornGeo.computeVertexNormals();
+  const horn = new THREE.Mesh(hornGeo, paintMat({ color: 0xfff1c8, emissive: 0x5a4a28 }));
+  horn.rotation.x = Math.PI / 2; horn.position.set(0, 0.15, 2.9);
+  body.add(horn);
+  const fm = paintMat({ color: 0x8aa0c8, side: THREE.DoubleSide, emissive: 0x101830 });
+  for (const s of [-1, 1]) {
+    const e = eyeball(0.12); e.position.set(0.55 * s, 0.05, 1.3); e.rotation.y = 1.1 * s; body.add(e);
+    const fin = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), fm);
+    fin.scale.set(1.2, 0.15, 0.5); fin.position.set(0.8 * s, -0.35, 0.6); fin.rotation.z = -0.4 * s; body.add(fin);
+  }
+  const tail = new THREE.Group(); tail.position.z = -1.9; body.add(tail);
+  const fl = new THREE.Mesh(new THREE.SphereGeometry(0.6, 10, 6), fm);
+  fl.scale.set(1.5, 0.12, 0.6); fl.position.z = -0.3; tail.add(fl);
+  g.userData = { body, tail };
+  return g;
+}
+class Narwhal extends Creature {
+  constructor(scene, center, radius, height, phase) {
+    super(scene, 'narwhal');
+    this.model = narwhalModel();
+    this.root.add(this.model);
+    this.root.scale.setScalar(1.3);
+    this.c = center; this.r = radius; this.h = height; this.t = phase;
+    this.friendRadius = 7;
+  }
+  update(dt) {
+    this.t += dt * 0.08;
+    const p = new THREE.Vector3(this.c.x + Math.cos(this.t) * this.r, this.h + Math.sin(this.t * 2.5) * 4, this.c.z + Math.sin(this.t) * this.r);
+    const dir = p.clone().sub(this.root.position);
+    this.root.position.copy(p);
+    faceDir(this.root, dir, dt, 2);
+    this.model.userData.tail.rotation.x = Math.sin(this.t * 50) * 0.4;
+    this.bounce(dt);
+  }
+}
+
+// ---------- Sea bunny: a tiny fluffy sea slug with bunny ears ----------
+export function seaBunnyModel() {
+  const g = new THREE.Group();
+  const body = new THREE.Group(); g.add(body);
+  const fluff = paintMat({ color: 0xfffbf0, emissive: 0x5a564a });
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12), fluff);
+  b.scale.set(0.85, 0.7, 1.2); b.position.y = 0.4; body.add(b);
+  const dots = new THREE.MeshBasicMaterial({ color: 0x2b2238 });
+  for (let i = 0; i < 9; i++) {
+    const d = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 4), dots);
+    const a = i * 2.4, h = 0.3 + (i % 3) * 0.12;
+    d.position.set(Math.cos(a) * 0.45, 0.4 + h * 0.6, Math.sin(a) * 0.6); body.add(d);
+  }
+  const earM = paintMat({ color: 0xfffbf0, emissive: 0x5a564a });
+  for (const s of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.3, 4, 8), earM);
+    ear.position.set(0.16 * s, 0.95, 0.45); ear.rotation.z = -0.25 * s; ear.rotation.x = -0.2; body.add(ear);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), dots);
+    tip.position.set(0.21 * s, 1.15, 0.42); body.add(tip);
+    const e = eyeball(0.07); e.position.set(0.2 * s, 0.6, 0.68); e.rotation.y = 0.3 * s; body.add(e);
+  }
+  const gill = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), paintMat({ color: 0xffb35c, emissive: 0x603010 }));
+  gill.position.set(0, 0.75, -0.5); gill.scale.set(1, 0.6, 1); body.add(gill);
+  g.userData = { body };
+  return g;
+}
+class SeaBunny extends Creature {
+  constructor(scene, pos) {
+    super(scene, 'seaBunny');
+    this.model = seaBunnyModel();
+    this.root.add(this.model);
+    this.home = pos.clone();
+    this.root.position.copy(pos);
+    this.root.scale.setScalar(1.6);
+    this.friendRadius = 5;
+  }
+  update(dt) {
+    this.t += dt * 0.15;
+    const x = this.home.x + Math.cos(this.t) * 3, z = this.home.z + Math.sin(this.t) * 3;
+    this.root.position.set(x, groundHeight(x, z) + 0.1, z);
+    this.root.rotation.y = -this.t + Math.PI;
+    this.model.userData.body.scale.set(1, 1 + Math.sin(this.t * 25) * 0.05, 1 - Math.sin(this.t * 25) * 0.04);
+    this.bounce(dt);
+  }
+}
+
+// ---------- Starfish: a smiling five-armed friend on the sand ----------
+export function starfishModel(color = 0xff8a7a) {
+  const g = new THREE.Group();
+  const body = new THREE.Group(); g.add(body);
+  const shape = new THREE.Shape();
+  for (let i = 0; i <= 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + Math.PI / 2, r = i % 2 ? 0.42 : 1;
+    i ? shape.lineTo(Math.cos(a) * r, Math.sin(a) * r) : shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: true, bevelThickness: 0.12, bevelSize: 0.14, bevelSegments: 3 });
+  geo.rotateX(-Math.PI / 2);
+  body.add(new THREE.Mesh(geo, paintMat({ color, emissive: new THREE.Color(color).multiplyScalar(0.25) })));
+  const bumps = paintMat({ color: 0xfff0c0, emissive: 0x504020 });
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + Math.PI / 2;
+    for (const r of [0.45, 0.7]) {
+      const d = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 4), bumps);
+      d.position.set(Math.cos(a) * r, 0.27, -Math.sin(a) * r); body.add(d);
+    }
+  }
+  for (const s of [-1, 1]) { const e = eyeball(0.1); e.position.set(0.14 * s, 0.32, 0.05); e.rotation.x = -1.2; body.add(e); }
+  const smile = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 4, 10, Math.PI), new THREE.MeshBasicMaterial({ color: 0x8a2030 }));
+  smile.rotation.x = -Math.PI / 2; smile.rotation.z = Math.PI; smile.position.set(0, 0.3, 0.2); body.add(smile);
+  g.userData = { body };
+  return g;
+}
+class Starfish extends Creature {
+  constructor(scene, pos, color) {
+    super(scene, 'starfish');
+    this.model = starfishModel(color);
+    this.root.add(this.model);
+    this.root.position.copy(pos);
+    this.root.scale.setScalar(1.4);
+    this.root.rotation.y = rand() * 6;
+    this.friendRadius = 4;
+  }
+  update(dt) {
+    this.t += dt;
+    this.model.userData.body.rotation.z = Math.sin(this.t * 1.2) * 0.06;
+    this.bounce(dt);
+  }
+}
+
+// ---------- Sea otter: floats on its back at the surface, holding a shell ----------
+export function otterModel() {
+  const g = new THREE.Group();
+  const body = new THREE.Group(); g.add(body);
+  const fur = paintMat({ color: 0x9a6a48, emissive: 0x2a1a10 });
+  const cream = paintMat({ color: 0xf2dcc0, emissive: 0x4a3a2a });
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.45, 1.1, 6, 12), fur);
+  torso.rotation.x = Math.PI / 2; body.add(torso);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 8), cream);
+  belly.scale.set(0.9, 0.5, 1.4); belly.position.y = 0.2; body.add(belly);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 14, 10), cream);
+  head.position.set(0, 0.25, 0.95); body.add(head);
+  for (const s of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 4), fur); ear.position.set(0.28 * s, 0.45, 0.9); body.add(ear);
+    const e = eyeball(0.07); e.position.set(0.15 * s, 0.52, 1.12); e.rotation.x = -0.9; body.add(e);
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), fur); paw.position.set(0.15 * s, 0.55, 0.45); body.add(paw);
+  }
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0x3a2418 }));
+  nose.position.set(0, 0.52, 1.3); body.add(nose);
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), paintMat({ color: 0xffc0d8, emissive: 0x502030, side: THREE.DoubleSide }));
+  shell.position.set(0, 0.62, 0.35); shell.scale.set(1, 0.4, 1); body.add(shell);
+  const tail = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.6, 4, 8), fur);
+  tail.rotation.x = Math.PI / 2; tail.position.set(0, 0, -1.2); body.add(tail);
+  g.userData = { body };
+  return g;
+}
+class Otter extends Creature {
+  constructor(scene, center, phase) {
+    super(scene, 'otter');
+    this.model = otterModel();
+    this.root.add(this.model);
+    this.root.scale.setScalar(1.4);
+    this.c = center; this.t = phase;
+    this.friendRadius = 6;
+  }
+  update(dt) {
+    this.t += dt * 0.12;
+    this.root.position.set(this.c.x + Math.cos(this.t) * 6, WORLD.surfaceY - 0.6 + Math.sin(this.t * 12) * 0.2, this.c.z + Math.sin(this.t) * 6);
+    this.root.rotation.y = -this.t;
+    this.model.userData.body.rotation.z = Math.sin(this.t * 9) * 0.15;
+    this.bounce(dt);
+  }
+}
+
 // ---------- spawn everything ----------
 export function spawnCreatures(scene) {
   const list = [];
@@ -643,6 +832,10 @@ export function spawnCreatures(scene) {
   list.push(new Manta(scene, new THREE.Vector3(-40, 0, 110), 60, 22, 0), new Manta(scene, new THREE.Vector3(120, 0, -40), 50, 25, 2));
   list.push(new Puffer(scene, gh(100, 25, 5)), new Puffer(scene, gh(-30, 40, 4)));
   list.push(new Octopus(scene, gh(75, 75, 0.5)));
+  list.push(new Narwhal(scene, new THREE.Vector3(-60, 0, -40), 35, 24, 0), new Narwhal(scene, new THREE.Vector3(-60, 0, -40), 35, 28, 3));
+  list.push(new SeaBunny(scene, gh(-115, 40, 0)), new SeaBunny(scene, gh(-140, 5, 0)), new SeaBunny(scene, gh(20, 58, 0)));
+  list.push(new Starfish(scene, gh(-8, 62, 0.1), 0xff8a7a), new Starfish(scene, gh(104, 52, 0.1), 0xffb04d), new Starfish(scene, gh(55, 150, 0.1), 0xc89bff));
+  list.push(new Otter(scene, new THREE.Vector3(10, 0, 55), 0), new Otter(scene, new THREE.Vector3(-50, 0, 30), 2));
   return {
     schools, list,
     all: [...schools, ...list],
@@ -662,6 +855,10 @@ export function thumbModel(kind) {
     case 'manta': return mantaModel();
     case 'puffer': return pufferModel();
     case 'octopus': return octopusModel();
+    case 'narwhal': return narwhalModel();
+    case 'seaBunny': return seaBunnyModel();
+    case 'starfish': return starfishModel();
+    case 'otter': return otterModel();
     default: {
       const t = Object.values(FISH_TYPES).find((f) => f.kind === kind);
       return new THREE.Mesh(fishGeo(t), paintMat({ vertexColors: true }));

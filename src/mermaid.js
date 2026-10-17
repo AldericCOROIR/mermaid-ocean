@@ -48,6 +48,62 @@ export const PALETTES = {
   guard: { skin: 0xe0b08a, hair: 0x2b4a7a, hair2: 0x3f6aa8, tail: '#2a7fb8', tail2: '#7fd0ff', fin: 0x4fb0e0, top: 0xd8c27a, eyes: '#203050', merman: true },
 };
 
+const ball = (r, m, x, y, z, sx = 1, sy = 1, sz = 1) => {
+  const b = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), m);
+  b.position.set(x, y, z); b.scale.set(sx, sy, sz);
+  return b;
+};
+const ribbon = () => paintMat({ color: 0xff7fb8, emissive: 0x5a1838 });
+const HAIR_STYLES = {
+  // short rounded bob that stops at the chin
+  bob(g, m, m2) {
+    g.add(ball(0.5, m, 0, -0.08, -0.2, 1.12, 0.88, 0.8));
+    for (const sx of [-1, 1]) g.add(ball(0.16, m2, 0.38 * sx, -0.36, 0.06, 1, 0.8, 1));
+    const flick = new THREE.Group(); flick.position.set(0, -0.35, -0.3); g.add(flick);
+    flick.add(ball(0.3, m, 0, -0.08, 0, 1.3, 0.6, 0.7));
+    return [flick];
+  },
+  // two space buns on top with ribbons
+  buns(g, m, m2) {
+    g.add(ball(0.47, m, 0, -0.05, -0.15, 1.04, 0.95, 0.9));
+    const r = ribbon();
+    for (const sx of [-1, 1]) {
+      const bun = new THREE.Group(); bun.position.set(0.3 * sx, 0.38, -0.05); g.add(bun);
+      bun.add(ball(0.2, m, 0, 0, 0));
+      bun.add(ball(0.08, m2, 0.05 * sx, 0.1, 0.12));
+      const bow = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 5, 14), r);
+      bow.rotation.x = Math.PI / 2; bow.position.y = -0.1; bun.add(bow);
+    }
+    return [];
+  },
+  // two long braids over the shoulders
+  braids(g, m, m2) {
+    g.add(ball(0.47, m, 0, -0.05, -0.15, 1.04, 0.95, 0.9));
+    const r = ribbon(), sway = [];
+    for (const sx of [-1, 1]) {
+      const braid = new THREE.Group(); braid.position.set(0.37 * sx, -0.2, 0.16); g.add(braid);
+      for (let i = 0; i < 6; i++) braid.add(ball(0.13 - i * 0.008, i % 2 ? m2 : m, sx * 0.03 * (i % 2 ? 1 : -1), -i * 0.17, i * 0.03, 1, 0.85, 1));
+      const bow = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.03, 5, 10), r);
+      bow.position.set(0, -1.02, 0.18); braid.add(bow);
+      braid.add(ball(0.08, m2, 0, -1.16, 0.2, 1, 1.3, 1));
+      sway.push(braid);
+    }
+    return sway;
+  },
+  // high ponytail that swishes
+  ponytail(g, m, m2) {
+    g.add(ball(0.47, m, 0, -0.03, -0.14, 1.04, 0.97, 0.92));
+    const tie = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.04, 5, 12), ribbon());
+    tie.position.set(0, 0.38, -0.42); tie.rotation.x = 0.9; g.add(tie);
+    const upper = new THREE.Group(); upper.position.set(0, 0.36, -0.46); g.add(upper);
+    upper.add(ball(0.24, m, 0, -0.18, -0.12, 1.1, 1.5, 0.9));
+    const lower = new THREE.Group(); lower.position.set(0, -0.5, -0.1); upper.add(lower);
+    lower.add(ball(0.17, m, 0, -0.2, 0, 1, 1.5, 0.9));
+    lower.add(ball(0.11, m2, 0, -0.5, 0.02, 1, 1.3, 0.9));
+    return [upper, lower];
+  },
+};
+
 export class MerModel {
   constructor(pal = PALETTES.player) {
     this.pal = pal;
@@ -67,6 +123,7 @@ export class MerModel {
     const hair2M = paintMat({ color: p.hair2, emissive: new THREE.Color(p.hair2).multiplyScalar(0.18) });
     const topM = paintMat({ color: p.top, emissive: new THREE.Color(p.top).multiplyScalar(0.2) });
     this.topMat = topM;
+    this.hairM = hairM; this.hair2M = hair2M;
     const big = p.merman ? 1.15 : 1;
 
     // torso
@@ -125,22 +182,23 @@ export class MerModel {
       bang.scale.set(0.95, 0.6, 0.55); bang.rotation.z = (i - 2) * -0.25;
       this.head.add(bang);
     }
+    // long flowing hair (default style): side locks, curls and two smooth locks that trail & sway
+    this.hair = [];
+    this.hairStyles = {};
     if (!p.merman) {
+      const long = new THREE.Group();
+      this.head.add(long);
       for (const sx of [-1, 1]) {
         const lock = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.42, 4, 8), hairM);
         lock.position.set(0.36 * sx, -0.22, 0.08); lock.rotation.z = 0.12 * sx; lock.scale.set(1, 1, 0.8);
-        this.head.add(lock);
+        long.add(lock);
         const curl = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), hair2M);
         curl.position.set(0.39 * sx, -0.5, 0.1);
-        this.head.add(curl);
+        long.add(curl);
       }
-    }
-    // long flowing hair: two smooth overlapping locks that trail & sway
-    this.hair = [];
-    if (!p.merman) {
       const upper = new THREE.Group();
       upper.position.set(0, -0.05, -0.22);
-      this.head.add(upper);
+      long.add(upper);
       const u = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 16), hairM);
       u.scale.set(0.95, 1.1, 0.42); u.position.y = -0.38;
       upper.add(u);
@@ -153,7 +211,8 @@ export class MerModel {
       const tip = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), hair2M);
       tip.scale.set(1.3, 1, 0.6); tip.position.y = -0.72;
       lower.add(tip);
-      this.hair.push(upper, lower);
+      this.hairStyles.long = { group: long, sway: [upper, lower] };
+      this.hair = [upper, lower];
       // starfish hair clip
       const clip = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), paintMat({ color: 0xffd36b, emissive: 0x806020 }));
       clip.position.set(0.3, 0.22, 0.12); clip.scale.set(1, 1, 0.4);
@@ -283,6 +342,25 @@ export class MerModel {
     this.topMat.color.setHex(top);
     this.topMat.emissive.setHex(top).multiplyScalar(0.2);
     this.setHeadwear(outfit.head || 'none');
+    this.setHair(outfit.hair || 'long');
+  }
+
+  // hairstyles from the wardrobe; built lazily, each with its own swaying parts
+  setHair(kind) {
+    if (!this.hairStyles?.long) return;
+    if (!this.hairStyles[kind]) {
+      const build = HAIR_STYLES[kind];
+      if (!build) kind = 'long';
+      else {
+        const group = new THREE.Group();
+        const sway = build(group, this.hairM, this.hair2M);
+        this.head.add(group);
+        this.hairStyles[kind] = { group, sway };
+      }
+    }
+    for (const [name, st] of Object.entries(this.hairStyles)) st.group.visible = name === kind;
+    this.hair = this.hairStyles[kind].sway;
+    this.hairStyle = kind;
   }
 
   setHeadwear(kind) {

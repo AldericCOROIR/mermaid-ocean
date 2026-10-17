@@ -17,6 +17,11 @@ export class UI {
     $('bubble').addEventListener('click', (e) => { if (e.target.id !== 'bubbleOk') this.onBubbleOk?.(); });
     $('btnAlbum').addEventListener('click', () => this.openAlbum());
     $('albumClose').addEventListener('click', () => $('album').classList.add('hidden'));
+    // tap a friend you know: it swims along with you (tap again to send it home)
+    $('albumGrid').addEventListener('click', (e) => {
+      const c = e.target.closest('.card[data-kind]');
+      if (c && !c.classList.contains('locked')) { this.onFollow?.(c.dataset.kind); this.openAlbum(); }
+    });
     $('btnWardrobe').addEventListener('click', () => this.openWardrobe());
     $('wardrobeClose').addEventListener('click', () => this.closeWardrobe());
     $('wardrobeChoices').addEventListener('click', (e) => {
@@ -26,13 +31,17 @@ export class UI {
     $('btnMenu').addEventListener('click', () => { this.renderMenu(); $('menu').classList.remove('hidden'); });
     $('menuClose').addEventListener('click', () => $('menu').classList.add('hidden'));
     // tap a quest to follow its sparkle trail and hear it again
-    $('quest').addEventListener('click', () => { this.onTrack?.('main'); say($('questText').textContent); });
+    $('quest').addEventListener('click', () => { this._sideOpen = false; this.onTrack?.('main'); say($('questText').textContent); });
+    // the side quest pill shows one quest; tap it to open the list and pick another
     $('sideQuest').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-id]');
       if (!b) return;
       e.stopPropagation();
-      this.onTrack?.(b.dataset.id);
-      say(this._sideTexts?.[b.dataset.id]);
+      const id = b.dataset.id;
+      if (b.classList.contains('shown')) this._sideOpen = !this._sideOpen && (this._side?.list.length || 0) > 1;
+      else this._sideOpen = false;
+      this.onTrack?.(id);
+      say(this._sideTexts?.[id]);
     });
   }
 
@@ -75,12 +84,18 @@ export class UI {
 
   // One tappable pill per side quest; the tracked quest (main or side) is highlighted
   // and its sparkle trail is the one shown in the world.
-  setSideQuests(list, tracked) {
+  setSideQuests(list, tracked, shown) {
+    this._side = { list, tracked, shown };
     const box = $('sideQuest');
     const hex = (c) => '#' + c.toString(16).padStart(6, '0');
-    box.innerHTML = list.map((q) => `<button class="pill side${q.id === tracked ? ' tracked' : ''}" data-id="${q.id}">`
-      + `<span class="dot" style="background:${hex(q.color)}"></span><span class="ico">${q.icon}</span><span class="txt"></span></button>`).join('');
-    box.querySelectorAll('button').forEach((b, i) => { b.querySelector('.txt').textContent = list[i].text; });
+    const cur = list.find((q) => q.id === shown) || list[0];
+    if (list.length < 2) this._sideOpen = false;
+    const rows = cur ? [cur, ...(this._sideOpen ? list.filter((q) => q !== cur) : [])] : [];
+    box.innerHTML = rows.map((q, i) => `<button class="pill side${i ? ' choice' : ' shown'}${q.id === tracked ? ' tracked' : ''}" data-id="${q.id}">`
+      + `<span class="dot" style="background:${hex(q.color)}"></span><span class="ico">${q.icon}</span><span class="txt"></span>`
+      + (i === 0 && list.length > 1 ? `<span class="caret">${this._sideOpen ? '▴' : '▾'} ${list.length}</span>` : '') + '</button>').join('');
+    box.querySelectorAll('button').forEach((b, i) => { b.querySelector('.txt').textContent = rows[i].text; });
+    box.classList.toggle('open', !!this._sideOpen);
     box.classList.toggle('hidden', !list.length);
     $('quest').classList.toggle('tracked', tracked === 'main' && list.length > 0);
     this._sideTexts = Object.fromEntries(list.map((q) => [q.id, q.text]));
@@ -108,6 +123,7 @@ export class UI {
       tail: ['teal', 'rose', 'sapphire', 'rainbow'],
       top: ['lavender', 'seaGlass', 'coral', 'gold'],
       head: ['none', 'coralClip', 'pearlTiara', 'crown'],
+      hair: ['long', 'bob', 'buns', 'braids', 'ponytail'],
     };
     $('wardrobeChoices').innerHTML = Object.entries(groups).map(([category, items]) =>
       `<section class="dressGroup"><h3>${t('wardrobe.' + category)}</h3><div class="dressChoices">${items.map((item) => {
@@ -119,10 +135,12 @@ export class UI {
   openAlbum() {
     const friends = this.getFriends?.() || [];
     $('albumTitle').textContent = `${t('album')} ${friends.length}/${ALBUM.length}`;
+    $('albumHint').textContent = t('followHint');
+    const following = this.getFollower?.();
     $('albumGrid').innerHTML = ALBUM.map((k) => {
       const has = friends.includes(k);
       const img = this.thumbs[k];
-      return `<div class="card ${has ? '' : 'locked'}">${img ? `<img src="${img}" width="80" height="80" alt="">` : '<span class="e">❓</span>'}<div>${has ? t('names.' + k) : '?'}</div></div>`;
+      return `<div class="card ${has ? '' : 'locked'}${k === following ? ' following' : ''}" data-kind="${k}">${k === following ? '<span class="tag">💕</span>' : ''}${img ? `<img src="${img}" width="80" height="80" alt="">` : '<span class="e">❓</span>'}<div>${has ? t('names.' + k) : '?'}</div></div>`;
     }).join('');
     $('album').classList.remove('hidden');
   }
@@ -148,8 +166,8 @@ export class UI {
 export class Save {
   constructor() {
     const def = { stage: 'meet', pearls: [], crystals: [], friends: [], crown: false, rainbow: false,
-      sideQuests: {}, unlocked: ['teal', 'lavender', 'none'],
-      outfit: { tail: 'teal', top: 'lavender', head: 'none' } };
+      sideQuests: {}, unlocked: ['teal', 'lavender', 'none', 'long'],
+      outfit: { tail: 'teal', top: 'lavender', head: 'none', hair: 'long' } };
     const lang = (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
     const defS = { paint: true, sound: true, lang, quality: 'auto' };
     let data = null;
@@ -157,6 +175,7 @@ export class Save {
     this.state = { ...def, ...(data?.state || {}) };
     this.state.sideQuests ||= {};
     this.state.unlocked = Array.isArray(this.state.unlocked) ? this.state.unlocked : [...def.unlocked];
+    if (!this.state.unlocked.includes('long')) this.state.unlocked.push('long');
     this.state.outfit = { ...def.outfit, ...(this.state.outfit || {}) };
     this.settings = { ...defS, ...(data?.settings || {}) };
   }
