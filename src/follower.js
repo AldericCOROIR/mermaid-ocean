@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { MerModel, PALETTES } from './mermaid.js';
 import { thumbModel } from './creatures.js';
+import { LAND_KINDS } from './landfolk.js';
 
 export class Follower {
   constructor(scene, player) {
@@ -18,7 +19,7 @@ export class Follower {
     if (!kind) return;
     let model;
     if (kind === 'mermaid' || kind === 'guard') { this.mer = new MerModel(kind === 'guard' ? PALETTES.guard : PALETTES.coral); model = this.mer.root; }
-    else model = thumbModel(kind);
+    else model = LAND_KINDS[kind]?.() ?? thumbModel(kind);
     // every friend becomes a cute companion-sized copy
     const sph = new THREE.Box3().setFromObject(model).getBoundingSphere(new THREE.Sphere());
     const want = this.mer ? 1.6 : kind === 'whale' ? 2.4 : 1.3;
@@ -55,7 +56,8 @@ export class Follower {
     const w = this.t * (4 + Math.min(speed, 10));
     if (ud.tail) ud.tail.rotation.x = Math.sin(w) * 0.4;
     ud.flippers?.forEach((fl, i) => { fl.rotation.z = Math.sin(w + (i > 1 ? 1 : 0)) * 0.5 * (i % 2 ? -1 : 1); });
-    ud.arms?.forEach((chain, i) => chain.forEach((s, j) => { s.rotation.z = (j === 0 ? -0.5 : 0) + Math.sin(this.t * 1.5 + i + j * 0.8) * 0.25; }));
+    ud.arms?.forEach((chain, i) => (Array.isArray(chain) ? chain : [chain]).forEach((s, j) => { s.rotation.z = (j === 0 ? -0.5 : 0) + Math.sin(this.t * 1.5 + i + j * 0.8) * 0.25; }));
+    ud.wings?.forEach((wg, i) => { wg.rotation.z = (i ? 1 : -1) * ((ud.wingOpen ?? 1.2) + Math.sin(this.t * (ud.flapRate ?? 9)) * 0.5); });
     this.inner.rotation.z = Math.sin(this.t * 2) * 0.08;
   }
 }

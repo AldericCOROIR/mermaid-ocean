@@ -134,11 +134,11 @@ export class UI {
     $('wardrobeTitle').textContent = t('wardrobe.title');
     $('wardrobeHint').textContent = t('wardrobe.hint');
     const groups = {
-      tail: ['teal', 'rose', 'sapphire', 'rainbow', 'pearl', 'galaxy', 'mint', 'candy', 'sunset'],
-      top: ['lavender', 'seaGlass', 'coral', 'gold', 'shellTop', 'berry', 'ocean', 'mintTop', 'sunny'],
-      head: ['none', 'coralClip', 'pearlTiara', 'crown', 'pirateHat', 'bow', 'starClip', 'shellCrown', 'flowerCrown'],
-      hair: ['long', 'bob', 'buns', 'braids', 'ponytail'],
-      hairColor: ['pink', 'golden', 'chestnut', 'midnight', 'seafoam', 'lilac', 'starlight'],
+      tail: ['teal', 'rose', 'sapphire', 'rainbow', 'pearl', 'galaxy', 'mint', 'candy', 'sunset', 'lagoon', 'treasure', 'sunshine', 'tropic', 'flamingo'],
+      top: ['lavender', 'seaGlass', 'coral', 'gold', 'shellTop', 'berry', 'ocean', 'mintTop', 'sunny', 'palmTop', 'sailor', 'pirateStripe', 'hibiscus', 'peacockTop', 'leafTop'],
+      head: ['none', 'coralClip', 'pearlTiara', 'crown', 'pirateHat', 'bow', 'starClip', 'shellCrown', 'flowerCrown', 'bandana', 'sunHat', 'lei', 'leafCrown', 'featherBand', 'sunnies', 'parrotPal'],
+      hair: ['long', 'bob', 'buns', 'braids', 'ponytail', 'pigtails', 'flowerBun'],
+      hairColor: ['pink', 'golden', 'chestnut', 'midnight', 'seafoam', 'lilac', 'starlight', 'mango', 'coconut', 'jungle', 'sky'],
     };
     $('wardrobeChoices').innerHTML = Object.entries(groups).map(([category, items]) =>
       `<section class="dressGroup"><h3>${t('wardrobe.' + category)}</h3><div class="dressChoices">${items.map((item) => {

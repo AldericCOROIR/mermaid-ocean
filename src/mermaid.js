@@ -57,6 +57,7 @@ const ball = (r, m, x, y, z, sx = 1, sy = 1, sz = 1) => {
 const HAIR_COLORS = {
   pink: [0xff9fd2, 0xffc6e6], golden: [0xffd35e, 0xfff0a8], chestnut: [0x9a5a3a, 0xc98a5e], midnight: [0x2e3a8c, 0x5a6ad0],
   seafoam: [0x4fd8b8, 0xb0fff0], lilac: [0xb88cff, 0xe4d0ff], starlight: [0xe6f0ff, 0xffd0f0],
+  mango: [0xffa53a, 0xffe08a], coconut: [0x6a4028, 0xb88a60], jungle: [0x3fae5a, 0xa8f0a0], sky: [0x6ac8ff, 0xd8f2ff],
 };
 const ribbon = () => paintMat({ color: 0xff7fb8, emissive: 0x5a1838 });
 const HAIR_STYLES = {
@@ -107,6 +108,33 @@ const HAIR_STYLES = {
     lower.add(ball(0.11, m2, 0, -0.5, 0.02, 1, 1.3, 0.9));
     return [upper, lower];
   },
+  // two bouncy pigtails tied with bows, from Old Shelldon
+  pigtails(g, m, m2) {
+    g.add(ball(0.47, m, 0, -0.05, -0.15, 1.04, 0.95, 0.9));
+    const r = ribbon(), sway = [];
+    for (const sx of [-1, 1]) {
+      const tie = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.035, 5, 10), r);
+      tie.position.set(0.42 * sx, 0.12, -0.12); tie.rotation.y = Math.PI / 2; g.add(tie);
+      const tail = new THREE.Group(); tail.position.set(0.48 * sx, 0.1, -0.12); g.add(tail);
+      tail.add(ball(0.17, m, 0.08 * sx, -0.18, 0, 0.9, 1.4, 0.9));
+      tail.add(ball(0.12, m2, 0.12 * sx, -0.46, 0.02, 0.9, 1.3, 0.9));
+      sway.push(tail);
+    }
+    return sway;
+  },
+  // a big bun on top wrapped in little tropical flowers, from Bolt the Builder
+  flowerBun(g, m, m2) {
+    g.add(ball(0.47, m, 0, -0.03, -0.14, 1.04, 0.97, 0.92));
+    g.add(ball(0.27, m, 0, 0.42, -0.12));
+    g.add(ball(0.12, m2, 0.06, 0.55, -0.02));
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const f = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 6), paintMat({ color: [0xff6fa8, 0xfff07a, 0xffffff][i % 3], emissive: 0x402030 }));
+      f.position.set(Math.cos(a) * 0.27, 0.32, -0.12 + Math.sin(a) * 0.27); f.scale.set(1, 0.6, 1);
+      g.add(f);
+    }
+    return [];
+  },
 };
 
 // Treasures from the chain quests: a bow, a star clip, a shell crown and a flower crown.
@@ -152,6 +180,64 @@ function extraHeadwear(head) {
   }
   flowers.position.set(0, 0.36, -0.02); flowers.rotation.x = -0.3;
   head.add(flowers); out.flowerCrown = flowers;
+  Object.assign(out, islandHeadwear(head, pm));
+  return out;
+}
+
+// Treasures from the island friends above the waves.
+function islandHeadwear(head, pm) {
+  const out = {};
+  const put = (name, g, x, y, z, rx = 0, ry = 0, rz = 0) => { g.position.set(x, y, z); g.rotation.set(rx, ry, rz); head.add(g); out[name] = g; };
+  const sph = (r, m, x, y, z, sx = 1, sy = 1, sz = 1) => { const b = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), m); b.position.set(x, y, z); b.scale.set(sx, sy, sz); return b; };
+  // red pirate bandana with white dots and a knot at the back
+  const bandana = new THREE.Group();
+  const red = pm(0xe8364a, 0.25), dot = pm(0xffffff, 0.4);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.5, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), red);
+  bandana.add(cap);
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; bandana.add(sph(0.04, dot, Math.cos(a) * 0.3, 0.38, Math.sin(a) * 0.3, 1, 0.4, 1)); }
+  bandana.add(sph(0.09, red, 0, 0.12, -0.5), sph(0.08, red, 0.08, -0.05, -0.55, 0.7, 1.6, 0.5), sph(0.08, red, -0.08, -0.05, -0.55, 0.7, 1.6, 0.5));
+  put('bandana', bandana, 0, 0.06, -0.08, -0.15);
+  // wide straw sun hat with a pink ribbon
+  const sunHat = new THREE.Group();
+  const straw = pm(0xf2d48a, 0.3);
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.04, 28), straw);
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 0.32, 20), straw); crown.position.y = 0.17;
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.425, 0.425, 0.09, 20), pm(0xff7fb8, 0.3)); band.position.y = 0.06;
+  sunHat.add(brim, crown, band, sph(0.1, pm(0xff4f9a, 0.35), 0.4, 0.1, 0.1));
+  put('sunHat', sunHat, 0, 0.42, -0.04, -0.12);
+  // flower necklace around the neck
+  const lei = new THREE.Group();
+  for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI * 2; lei.add(sph(0.08, pm([0xff5f9a, 0xffd23f, 0xffffff, 0xff8f4a][i % 4], 0.4), Math.cos(a) * 0.36, 0, Math.sin(a) * 0.32, 1, 0.7, 1)); }
+  put('lei', lei, 0, -0.55, 0.02, 0.15);
+  // crown of big green leaves
+  const leafCrown = new THREE.Group();
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2;
+    const leaf = sph(0.13, pm(i % 2 ? 0x4fc860 : 0x7fe07a, 0.3), Math.cos(a) * 0.38, 0.08, Math.sin(a) * 0.38, 0.55, 1.4, 0.22);
+    leaf.rotation.set(Math.sin(a) * 0.4, -a + Math.PI / 2, -Math.cos(a) * 0.4); leafCrown.add(leaf);
+  }
+  put('leafCrown', leafCrown, 0, 0.36, -0.02, -0.25);
+  // headband with three tall colourful feathers
+  const featherBand = new THREE.Group();
+  const fb = new THREE.Mesh(new THREE.TorusGeometry(0.47, 0.035, 6, 26), pm(0x3f8fe0, 0.3)); fb.rotation.x = Math.PI / 2; featherBand.add(fb);
+  [0xff4a4a, 0xffd23f, 0x3fd0ff].forEach((c, i) => {
+    const f = sph(0.09, pm(c, 0.35), (i - 1) * 0.16, 0.42, -0.3, 0.5, 2.4, 0.25); f.rotation.z = (i - 1) * -0.35; featherBand.add(f);
+  });
+  put('featherBand', featherBand, 0, 0.16, 0, -0.1);
+  // heart-shaped pink sunglasses
+  const sunnies = new THREE.Group();
+  const lens = pm(0xff5fa8, 0.35), frame = pm(0xffffff, 0.4);
+  for (const sx of [-1, 1]) { sunnies.add(sph(0.12, lens, sx * 0.17, 0, 0, 1, 0.85, 0.35)); }
+  const bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.12, 6), frame); bridge.rotation.z = Math.PI / 2; bridge.position.y = 0.04; sunnies.add(bridge);
+  put('sunnies', sunnies, 0, 0.04, 0.44);
+  // a little parrot friend sitting on top of the head
+  const parrot = new THREE.Group();
+  const pr = pm(0xff3b3b, 0.3), py = pm(0xffd23f, 0.35), pb = pm(0x3f8fff, 0.3);
+  parrot.add(sph(0.14, pr, 0, 0.12, 0, 0.9, 1.15, 1), sph(0.11, pr, 0, 0.32, 0.04));
+  parrot.add(sph(0.05, py, 0, 0.3, 0.15, 0.8, 0.8, 1.4));
+  for (const sx of [-1, 1]) { parrot.add(sph(0.1, pb, sx * 0.12, 0.1, -0.02, 0.4, 1, 0.9)); parrot.add(sph(0.025, pm(0x101018, 0.1), sx * 0.07, 0.36, 0.11)); }
+  parrot.add(sph(0.06, py, 0, 0.0, -0.16, 0.6, 0.5, 1.8));
+  put('parrotPal', parrot, 0.08, 0.48, -0.05, 0, 0.3);
   return out;
 }
 
@@ -386,9 +472,11 @@ export class MerModel {
       teal: ['#3fd1c7', '#a8fff2'], rose: ['#ff7fac', '#ffe0ef'],
       sapphire: ['#448fe8', '#b9e7ff'], rainbow: ['#ff8fcf', '#9ff3ff'], pearl: ['#efe6ff', '#ffd6f0'],
       galaxy: ['#5a3ec8', '#f0c8ff'], mint: ['#5fe0b0', '#eafff6'], candy: ['#ff8fc8', '#fff09a'], sunset: ['#ff7a4a', '#ffd88a'],
+      lagoon: ['#18b8d8', '#c8fbff'], treasure: ['#e8a820', '#fff2a0'], sunshine: ['#ffd23f', '#ffffff'], tropic: ['#2fc870', '#ffc84a'], flamingo: ['#ff6fa8', '#ffd0e4'],
     };
     const tops = { lavender: 0xb98cff, seaGlass: 0x69e5d2, coral: 0xff8eab, gold: 0xffd36b, shellTop: 0xffb8dc,
-      berry: 0xd8407a, ocean: 0x3f7fe0, mintTop: 0x8af0c8, sunny: 0xffe14d };
+      berry: 0xd8407a, ocean: 0x3f7fe0, mintTop: 0x8af0c8, sunny: 0xffe14d,
+      palmTop: 0x6fd060, sailor: 0x2f5fc8, pirateStripe: 0x2a2a3a, hibiscus: 0xff4f7a, peacockTop: 0x1fa8b8, leafTop: 0x9ae05a };
     const [c1, c2] = tails[outfit.tail] || tails.teal;
     this.setTailColors(c1, c2);
     const top = tops[outfit.top] || tops.lavender;

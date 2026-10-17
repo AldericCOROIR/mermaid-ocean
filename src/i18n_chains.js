@@ -1,6 +1,7 @@
 // Words for the chain quests (src/chains.js), merged into the main strings in i18n.js.
 export const CHAIN_STR = {
   en: {
+    flyStart: 'Whee! A magic bubble! Now you can fly! Press down to dive back in the sea. 🫧',
     wardrobe: { galaxy: 'Galaxy Tail', mint: 'Mint Tail', candy: 'Candy Tail', sunset: 'Sunset Tail',
       berry: 'Berry Top', ocean: 'Ocean Top', mintTop: 'Mint Top', sunny: 'Sunny Top',
       bow: 'Pink Bow', starClip: 'Star Clip', shellCrown: 'Shell Crown', flowerCrown: 'Flower Crown' },
@@ -114,6 +115,7 @@ export const CHAIN_STR = {
     },
   },
   fr: {
+    flyStart: 'Youpi ! Une bulle magique ! Maintenant tu peux voler ! Appuie en bas pour replonger dans la mer. 🫧',
     wardrobe: { galaxy: 'Queue Galaxie', mint: 'Queue Menthe', candy: 'Queue Bonbon', sunset: 'Queue Coucher de soleil',
       berry: 'Haut Framboise', ocean: 'Haut Océan', mintTop: 'Haut Menthe', sunny: 'Haut Soleil',
       bow: 'Nœud rose', starClip: 'Barrette étoile', shellCrown: 'Couronne de coquillages', flowerCrown: 'Couronne de fleurs' },

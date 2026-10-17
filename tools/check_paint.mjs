@@ -7,7 +7,7 @@
 //  2. every painted tile in src/swatches.js has stroke contrast information;
 //  3. no page errors.
 import { chromium } from 'playwright';
-const SPOTS = (process.env.SPOTS || 'start,city,market,walk1,walk2,fountain,palace,hall,library,music,westbridge,eastbridge,reef,kelp,trench,tunnel,bay,shipwreck,shellhouse,castlehouse').split(',');
+const SPOTS = (process.env.SPOTS || 'start,city,market,walk1,walk2,fountain,palace,hall,library,music,westbridge,eastbridge,reef,kelp,trench,tunnel,bay,shipwreck,shellhouse,castlehouse,pirate,skull,grotto,paradise,treecity,sky').split(',');
 const browser = await chromium.launch({
   ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}),
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],

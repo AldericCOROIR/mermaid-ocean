@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { WORLD, groundHeight, glowTexture } from './util.js';
 import { paintMat, segment } from './geom.js';
+import { SURFACE_CHAINS } from './chains_surface.js';
 
 const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -76,6 +77,7 @@ export const CHAINS = {
     { type: 'collect', item: 'orb', where: (W) => W.around(60, 450, 92, 3, 3, 13) },
   ] },
 };
+Object.assign(CHAINS, SURFACE_CHAINS);
 export const CHAIN_BY_GIVER = Object.fromEntries(Object.entries(CHAINS).map(([id, c]) => [c.giver, id]));
 
 // ---------- quest items ----------
@@ -147,6 +149,68 @@ const ITEMS = {
     const s = new THREE.Mesh(geo, m); s.rotation.z = 1.1; s.position.set(-0.35, -0.25, 0); g.add(s);
   }],
   orb: [0xfff8ff, (g, m) => { g.add(new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12), m)); }],
+  // ---------- island things ----------
+  mapPiece: [0xf2dca0, (g, m) => {
+    const p = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 0.05), m); p.rotation.z = 0.15; g.add(p);
+    const x = pm(0xd83a3a, 0.4);
+    for (const r of [0.8, -0.8]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.07, 0.07), x); b.rotation.z = r; b.position.z = 0.04; g.add(b); }
+  }],
+  coconut: [0x8a5a34, (g, m) => {
+    g.add(new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), m));
+    for (const [x, y] of [[-0.12, 0.1], [0.12, 0.1], [0, -0.08]]) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 4), pm(0x3a2414, 0.1)); d.position.set(x, y, 0.38); g.add(d); }
+  }],
+  fish: [0x7fd0ff, (g, m) => {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 8), m); b.scale.set(1.3, 0.8, 0.5); g.add(b);
+    const t = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.35, 4), m); t.rotation.z = Math.PI / 2; t.position.x = -0.55; g.add(t);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 4), pm(0x202040, 0.1)); e.position.set(0.28, 0.08, 0.15); g.add(e);
+  }],
+  hibiscus: [0xff5a9a, (g, m) => {
+    for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; const p = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), m); p.scale.set(1, 0.3, 0.7); p.position.set(Math.cos(a) * 0.3, 0, Math.sin(a) * 0.3); p.rotation.y = -a; g.add(p); }
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 5), pm(0xfff070, 0.5)); c.position.y = 0.2; g.add(c);
+    g.rotation.x = 0.5;
+  }],
+  crystal: [0xc8a0ff, (g, m) => { for (const [x, s] of [[0, 1], [0.3, 0.6], [-0.28, 0.7]]) { const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.3, 0), m); c.scale.set(0.7 * s, 1.6 * s, 0.7 * s); c.position.x = x; g.add(c); } }],
+  berry: [0xff3a6a, (g, m) => {
+    for (const [x, y, z] of [[0, 0.15, 0], [-0.2, -0.08, 0.05], [0.2, -0.08, 0.05], [0, -0.1, -0.18]]) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), m); b.position.set(x, y, z); g.add(b); }
+    const l = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), pm(0x4fbf5a, 0.25)); l.scale.set(1.4, 0.3, 0.7); l.position.y = 0.36; g.add(l);
+  }],
+  truffle: [0xc87a50, (g, m) => {
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m); cap.position.y = 0.1; g.add(cap);
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.4, 8), pm(0xfff4e0, 0.35)));
+    for (let i = 0; i < 4; i++) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 4), pm(0xffffff, 0.5)); d.position.set(Math.cos(i * 1.6) * 0.25, 0.38, Math.sin(i * 1.6) * 0.25); g.add(d); }
+  }],
+  ball: [0xff5a5a, (g) => {
+    const cols = [0xff5a5a, 0xffffff, 0x4aa8ff, 0xffffff, 0xffd23f, 0xffffff];
+    cols.forEach((c, i) => { const s = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 10, (i / 6) * Math.PI * 2, Math.PI / 3), pm(c, 0.3)); g.add(s); });
+  }],
+  button: [0xff8fc8, (g, m) => {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 18), m); b.rotation.x = Math.PI / 2; g.add(b);
+    for (const [x, y] of [[-0.1, 0.1], [0.1, 0.1], [-0.1, -0.1], [0.1, -0.1]]) { const h = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.12, 6), pm(0x7a3a5a, 0.2)); h.rotation.x = Math.PI / 2; h.position.set(x, y, 0.01); g.add(h); }
+  }],
+  seed: [0xb8ff6a, (g, m) => {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), pm(0xc8925a, 0.3)); s.scale.set(1, 1.3, 1); g.add(s);
+    for (const r of [-0.6, 0.6]) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), m); l.scale.set(1.3, 0.3, 0.7); l.position.set(r * 0.25, 0.45, 0); l.rotation.z = -r; g.add(l); }
+  }],
+  plank: [0xd8a060, (g, m) => { for (const y of [-0.15, 0.15]) { const p = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.22, 0.12), m); p.position.y = y; p.rotation.z = y; g.add(p); } }],
+  feather: [0xff4a4a, (g) => {
+    ['#ff4a4a', '#ffd23f', '#3f8fff'].forEach((c, i) => { const f = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), pm(new THREE.Color(c).getHex(), 0.35)); f.scale.set(0.6, 2.2, 0.15); f.position.set((i - 1) * 0.15, 0, 0); f.rotation.z = (i - 1) * 0.35; g.add(f); });
+  }],
+  mango: [0xffa030, (g, m) => {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 10), m); b.scale.set(1, 1.25, 0.9); g.add(b);
+    const l = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), pm(0x4fbf5a, 0.25)); l.scale.set(1.5, 0.3, 0.7); l.position.set(0.12, 0.5, 0); g.add(l);
+  }],
+  shell: [0xffc8e0, (g, m) => {
+    for (let i = 0; i < 7; i++) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.7, 5), m); r.position.y = 0.0; r.rotation.z = (i - 3) * 0.22; r.position.x = (i - 3) * 0.06; g.add(r); }
+    const base = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), m); base.scale.set(1, 0.4, 0.5); base.rotation.x = Math.PI / 2; g.add(base);
+  }],
+  banana: [0xfff04a, (g, m) => {
+    for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.09, 6, 12, Math.PI * 0.6), m); b.rotation.z = 0.6 + i * 0.2; b.position.z = (i - 1) * 0.12; g.add(b); }
+  }],
+  lilyPad: [0x6fd86f, (g, m) => {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.06, 18, 1, false, 0.3, Math.PI * 2 - 0.6), m); g.add(p);
+    const f = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), pm(0xffb8e0, 0.45)); f.position.set(0.15, 0.12, 0.1); g.add(f);
+  }],
+  glimmer: [0xd8b0ff, (g, m) => { const o = new THREE.Mesh(new THREE.IcosahedronGeometry(0.35, 0), m); g.add(o); }],
 };
 export function chainItemModel(type) {
   const [color, build] = ITEMS[type];

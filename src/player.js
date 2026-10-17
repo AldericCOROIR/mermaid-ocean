@@ -1,12 +1,13 @@
-// The player's mermaid: swimming physics, surface leaps, and the follow camera.
+// The player's mermaid: swimming physics, bubble flight above the waves, and the follow camera.
 import * as THREE from 'three';
 import { WORLD, BAY, TUNNEL, tunnelInfo, groundHeight, damp, bubbleTexture } from './util.js';
 import { houseLimit, houseCamera } from './bay.js';
 import { MerModel, PALETTES } from './mermaid.js';
 import { collide } from './world.js';
 import { castleFloorHeight } from './city.js';
+import { canDive, bubbleModel, SKY_LIMIT, WORLD_EDGE } from './surface.js';
 
-const SPEED = 9, DASH = 22;
+const SPEED = 9, DASH = 22, FLY = 13, FLY_DASH = 26;
 
 export class Player {
   constructor(scene, camera) {
@@ -23,6 +24,10 @@ export class Player {
     this.facing = Math.PI;
     this.dash = 0;
     this.airborne = false;
+    this.flying = false; // in her magic bubble, above the waves
+    this.bubble = bubbleModel(); this.bubble.visible = false;
+    scene.add(this.bubble);
+    this.surface = null; // set by main: islands, floors and walls above the sea
     this.camPos = new THREE.Vector3();
     this.focusDist = 7;
     this.trail = this.makeTrail(scene);
@@ -80,7 +85,7 @@ export class Player {
     wish.y = camF.y * Math.max(mv.y, 0) * 0.9 + vert;
     if (wish.lengthSq() > 1) wish.normalize();
     if (this.dash > 0) this.dash -= dt;
-    const top = (this.dash > 0 ? DASH : SPEED);
+    const top = this.flying ? (this.dash > 0 ? FLY_DASH : FLY) : (this.dash > 0 ? DASH : SPEED);
 
     if (!this.airborne) {
       const target = wish.multiplyScalar(top);
@@ -101,8 +106,11 @@ export class Player {
       const lim = TUNNEL.radius - 1.1;
       if (tin.dist > lim) this.position.sub(tin.center).multiplyScalar(lim / tin.dist).add(tin.center);
       this.airborne = false;
-    } else this.limitOpenWater();
-    this.inBay = this.position.z > WORLD.size / 2;
+    } else if (this.flying) this.limitSky();
+    else this.limitOpenWater();
+    this.inBay = !this.flying && this.position.z > WORLD.size / 2;
+    this.bubble.visible = this.flying;
+    if (this.flying) { this.bubble.position.copy(this.position); this.bubble.position.y += 0.15; }
 
     // ---- model orientation & animation ----
     const hv = Math.hypot(this.velocity.x, this.velocity.z);
@@ -148,11 +156,10 @@ export class Player {
     const g = castleFloorHeight(this.position.x, this.position.z, this.position.y);
     if (this.position.y < g + 1.0) { this.position.y = g + 1.0; this.velocity.y = Math.max(0, this.velocity.y); }
     const surf = WORLD.surfaceY - 0.6;
-    if (!this.airborne && this.position.y > surf) {
-      if (this.velocity.y > 6) { this.airborne = true; this.velocity.y *= 1.35; this.splashCb?.(this.position); }
-      else { this.position.y = surf; this.velocity.y = Math.min(0, this.velocity.y); }
-    } else if (this.airborne && this.position.y < surf && this.velocity.y < 0) {
-      this.airborne = false; this.velocity.y *= 0.4; this.splashCb?.(this.position);
+    if (this.position.y > surf) {
+      // swim up through the surface: a bubble forms and she flies!
+      if (this.velocity.y > 4 && this.surface) { this.startFlying(); return; }
+      this.position.y = surf; this.velocity.y = Math.min(0, this.velocity.y);
     }
     if (this.position.z > WORLD.size / 2) {
       // Shipwreck Bay is round, ringed by tall cliffs
@@ -167,6 +174,35 @@ export class Player {
     if (this.houses) houseLimit(this.position, this.houses);
   }
 
+  startFlying() {
+    this.flying = true;
+    this.velocity.y = Math.max(this.velocity.y, 8);
+    this.splashCb?.(this.position);
+    this.flyCb?.(true);
+  }
+
+  // In the bubble: the waves, island ground and decks are floors; the sky has a ceiling.
+  limitSky() {
+    const P = this.position, S = this.surface;
+    const lim = WORLD_EDGE;
+    P.x = THREE.MathUtils.clamp(P.x, -lim, lim);
+    P.z = THREE.MathUtils.clamp(P.z, -lim, lim);
+    if (P.y > SKY_LIMIT) { P.y = SKY_LIMIT; this.velocity.y = Math.min(0, this.velocity.y); }
+    // dive back into the sea where there is sea to dive into: the bubble pops
+    if (P.y < WORLD.surfaceY + 2.6 && this.velocity.y < -1 && canDive(P.x, P.z) && S.land(P.x, P.z) < WORLD.surfaceY - 1) {
+      this.flying = false;
+      P.y = WORLD.surfaceY - 1.2;
+      this.velocity.y = Math.min(this.velocity.y, -4);
+      this.splashCb?.(P);
+      this.flyCb?.(false);
+      return;
+    }
+    const f = S.floor(P.x, P.z, P.y) + 1.25;
+    if (P.y < f) { P.y = f; this.velocity.y = Math.max(0, this.velocity.y); }
+    this.indoors = S.limit(P, 1.2);
+    collide(P, 1.2);
+  }
+
   dirFacing() { return new THREE.Vector3(Math.sin(this.facing), 0, Math.cos(this.facing)); }
 
   doDash() { this.dash = 0.6; }
@@ -176,7 +212,11 @@ export class Player {
     const target = new THREE.Vector3(this.position.x, this.position.y + 0.9, this.position.z);
     const desired = target.clone().addScaledVector(f, -this.dist);
     desired.y += 0.6;
-    if (this.inTunnel) {
+    if (this.flying && this.surface) {
+      const f = this.surface.floor(desired.x, desired.z, desired.y) + 0.8;
+      if (desired.y < f) desired.y = f;
+      this.surface.camLimit(desired, target);
+    } else if (this.inTunnel) {
       // stay inside the tunnel walls
       const ti = tunnelInfo(desired), lim = TUNNEL.radius - 0.9;
       if (ti.dist > lim) desired.sub(ti.center).multiplyScalar(lim / ti.dist).add(ti.center);
@@ -186,7 +226,7 @@ export class Player {
       if (desired.y < g) desired.y = g;
       if (this.houses) houseCamera(desired, this.position, this.houses);
     }
-    if (desired.y > WORLD.surfaceY + (this.airborne ? 8 : -0.3)) desired.y = WORLD.surfaceY + (this.airborne ? 8 : -0.3);
+    if (!this.flying && desired.y > WORLD.surfaceY - 0.3) desired.y = WORLD.surfaceY - 0.3;
     this.camPos.x = damp(this.camPos.x, desired.x, 8, dt);
     this.camPos.y = damp(this.camPos.y, desired.y, 8, dt);
     this.camPos.z = damp(this.camPos.z, desired.z, 8, dt);

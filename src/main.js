@@ -10,6 +10,10 @@ import { Controls } from './controls.js';
 import { Story, ALBUM } from './quests.js';
 import { Follower } from './follower.js';
 import { buildBay } from './bay.js';
+import { buildSurface } from './surface.js';
+import { buildPirateIsland } from './pirateisland.js';
+import { buildParadiseIsland } from './paradiseisland.js';
+import { LAND_KINDS } from './landfolk.js';
 import { UI, Save } from './ui.js';
 import { Post } from './post.js';
 import { PaintProjection } from './projection.js';
@@ -70,13 +74,20 @@ const creatures = spawnCreatures(scene);
 // the secret tunnel, Shipwreck Bay and the shell houses
 const bay = buildBay(scene, creatures);
 brush.applyTo(bay.group);
+// above the waves: the open sea, the sky and the islands
+const surface = buildSurface(scene);
 const player = new Player(scene, camera);
 player.houses = bay.houses;
+player.surface = surface;
+const islands = { pirate: buildPirateIsland(scene), paradise: buildParadiseIsland(scene) };
+for (const is of Object.values(islands)) { surface.add(is); brush.applyTo(is.group); }
+surface.setAbove(false);
+const underwaterOnly = world.group.children.filter((o) => o.userData.sky || o.userData.surface || o.isPoints);
 const controls = new Controls(canvas);
 const ui = new UI();
 ui.settings = settings;
 ui.getFriends = () => save.state.friends;
-const story = new Story(scene, { player, city, creatures, ui, save, bay });
+const story = new Story(scene, { player, city, creatures, ui, save, bay, islands });
 const follower = new Follower(scene, player);
 if (save.state.follower && save.state.friends.includes(save.state.follower)) follower.set(save.state.follower);
 ui.getFollower = () => follower.kind;
@@ -107,6 +118,7 @@ ui.onWardrobeClose = () => {
   wardrobeReturn = null;
   player.snapCamera();
 };
+player.flyCb = (on) => { if (on && !save.state.flown) { save.state.flown = true; save.write(); ui.toast(t('flyStart')); } };
 player.splashCb = (p) => { sfx('splash'); story.bursts.emit(new THREE.Vector3(p.x, WORLD.surfaceY, p.z), 20, 'spark', 0xffffff, 6); };
 
 const post = new Post(renderer);
@@ -148,7 +160,7 @@ function makeThumbs() {
   for (const kind of ALBUM) {
     let obj;
     if (kind === 'mermaid' || kind === 'guard') { const m = new MerModel(kind === 'guard' ? PALETTES.guard : PALETTES.player); m.update(0.016, 0, 0); obj = m.root; }
-    else obj = thumbModel(kind);
+    else obj = LAND_KINDS[kind]?.() ?? thumbModel(kind);
     ts.add(obj);
     obj.rotation.y = kind === 'mermaid' || kind === 'guard' ? 0.35 : -0.9;
     if (kind === 'starfish' || kind === 'otter') obj.rotation.x = 0.9;
@@ -221,6 +233,13 @@ const SHOTS = {
   shipwreck: { p: [70, 6, 405], yaw: 0.9, pitch: -0.15, dist: 9 },
   shellhouse: { p: [36, 4, 422], yaw: -2.24, pitch: -0.08, dist: 8 },
   castlehouse: { p: [-24, 4, -156], yaw: -Math.PI / 2, pitch: -0.08, dist: 8 },
+  // above the waves, in the bubble
+  pirate: { p: islands.pirate.spots.landing.toArray(), yaw: -Math.PI / 2, pitch: -0.1, dist: 9, fly: true },
+  skull: { p: [-555, 95, -70], yaw: Math.PI, pitch: 0.12, dist: 12, fly: true },
+  grotto: { p: [-562, 80, -148], yaw: Math.PI, pitch: -0.1, dist: 7, fly: true },
+  paradise: { p: islands.paradise.spots.landing.toArray(), yaw: Math.PI / 2, pitch: -0.1, dist: 9, fly: true },
+  treecity: { p: [465, 115, 60], yaw: Math.PI / 2, pitch: 0.05, dist: 10, fly: true },
+  sky: { p: [-330, 150, -60], yaw: -Math.PI / 2, pitch: -0.3, dist: 12, fly: true },
 };
 let shotFrames = 0, shotReadyFrames = 0, paintSweep = 0;
 // clean=1 hides everything that moves: the 'plain blocks' plate that gets painted over
@@ -228,6 +247,7 @@ const CLEAN = params.get('clean') === '1';
 if (SHOT) {
   const s = SHOTS[SHOT] || SHOTS.city;
   player.position.set(...s.p);
+  if (s.fly) player.flying = true;
   player.yaw = s.yaw; player.pitch = s.pitch; player.dist = s.dist;
   player.facing = s.yaw + (s.face ? Math.PI - 0.35 : s.swim ? 1.2 : 0.4);
   player.snapCamera();
@@ -245,7 +265,7 @@ function hideMovers() {
 const clock = new THREE.Clock();
 let elapsed = 0, perfAcc = 0, perfN = 0, perfT = 0;
 const fogC = new THREE.Color();
-const FOG_TUNNEL = new THREE.Color(0x6a4a9a);
+const FOG_TUNNEL = new THREE.Color(0x6a4a9a), FOG_AIR = new THREE.Color(0xcfeeff);
 let tunnelMix = 0;
 const shotControls = { consumeLook: () => ({ dx: 0, dy: 0 }), move: { x: 0, y: 0 }, vertical: 0, dragging: false, consumeAction: () => false, poll() {} };
 
@@ -282,14 +302,19 @@ function frame() {
   if (!ui.wardrobeOpen) story.update(dt, elapsed, playing ? controls : shotControls);
   follower.update(dt);
 
-  // deeper = darker, bluer water
+  // deeper = darker, bluer water; above the waves: sunshine and sky
+  const above = camera.position.y > WORLD.surfaceY;
+  surface.setAbove(above);
+  for (const o of underwaterOnly) o.visible = !above;
+  surface.update(dt, elapsed);
   const depthY = THREE.MathUtils.clamp((WORLD.surfaceY - camera.position.y) / 85, 0, 1);
-  fogC.copy(FOG_SHALLOW).lerp(FOG_DEEP, depthY);
+  fogC.copy(above ? FOG_AIR : FOG_SHALLOW).lerp(FOG_DEEP, depthY);
   scene.fog.color.copy(fogC);
-  scene.fog.density = 0.002 + depthY * 0.0025;
+  scene.fog.density = above ? 0.0011 : 0.002 + depthY * 0.0025;
+  sun.intensity = above ? 2.7 : 2.15;
   if (SHOT === 'overview') scene.fog.density = 0.001;
   if (COMPARE) scene.fog.density = 0.0008;
-  hemi.intensity = 2.15 - depthY * 0.55;
+  hemi.intensity = above ? 2.3 : 2.15 - depthY * 0.55;
   // the flower tunnel glows a soft magical violet
   tunnelMix = THREE.MathUtils.damp(tunnelMix, player.inTunnel ? 1 : 0, 3, dt);
   if (tunnelMix > 0.001) {
@@ -327,4 +352,4 @@ projection.bakeDepth([world.group, city.group]);
 scene.children.forEach((o) => { if (o !== world.group && o !== city.group) brush.applyTo(o, true); });
 document.getElementById('loading').classList.add('hidden');
 requestAnimationFrame(frame);
-window.__game = { bay, player, story, follower, ui, camera, settings, city, projection, scene, Brushwork };
+window.__game = { bay, surface, islands, player, story, follower, ui, camera, settings, city, projection, scene, Brushwork };

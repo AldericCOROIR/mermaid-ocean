@@ -5,6 +5,7 @@ import { MerModel, PALETTES } from './mermaid.js';
 import { seahorseModel, turtleModel, octopusModel, dolphinModel, whaleModel, crabModel, pufferModel, jellyModel, otterModel } from './creatures.js';
 import { costumeCrab, lobsterModel, hermitCrabModel, snailModel, sealModel, oysterModel, anglerfishModel } from './seafolk.js';
 import { CHAINS, CHAIN_BY_GIVER, chainItemModel, beaconModel } from './chains.js';
+import { LAND_KINDS, LAND_SCALE, Flyer, Hopper, Walker, Percher, Floater, parrotModel, leafkinModel } from './landfolk.js';
 import { tunnelInfo, TUNNEL } from './util.js';
 import { paintMat } from './geom.js';
 import { collide } from './world.js';
@@ -12,7 +13,8 @@ import { t } from './i18n.js';
 import { sfx } from './audio.js';
 
 export const STAGES = ['meet', 'pearls', 'backQueen', 'baby', 'bringBaby', 'whale', 'shelly', 'crystals', 'finale', 'free'];
-export const ALBUM = ['clownfish', 'tang', 'yellowfish', 'angelfish', 'seahorse', 'crab', 'puffer', 'octopus', 'jellyfish', 'turtle', 'manta', 'dolphin', 'whale', 'narwhal', 'seaBunny', 'starfish', 'otter', 'seal', 'lobster', 'hermitCrab', 'snail', 'oyster', 'anglerfish', 'seaDragon', 'mermaid', 'guard'];
+export const ALBUM = ['clownfish', 'tang', 'yellowfish', 'angelfish', 'seahorse', 'crab', 'puffer', 'octopus', 'jellyfish', 'turtle', 'manta', 'dolphin', 'whale', 'narwhal', 'seaBunny', 'starfish', 'otter', 'seal', 'lobster', 'hermitCrab', 'snail', 'oyster', 'anglerfish', 'seaDragon', 'mermaid', 'guard',
+  ...Object.keys(LAND_KINDS)];
 // Baby animals who need help: collect their things, bring them back, win a hairstyle.
 // Collect missions: find the things a friend asks for, bring them back, win something for the wardrobe.
 const BABIES = {
@@ -27,14 +29,40 @@ const BABIES = {
 };
 const SIDE_IDS = ['tailor', 'keeper', 'bard', ...Object.keys(BABIES), 'whelk'];
 // Characters of the bay who just love to chat (lines rotate each visit).
-const CHATTERS = { madamePearl: 2 };
+const CHATTERS = { madamePearl: 2, snappy: 2, zaza: 2 };
 const TRAIL_COLORS = { main: 0xfff3a0, tailor: 0xff8fd0, keeper: 0x7ff0ff, bard: 0xc49bff,
   tico: 0x9dff8a, pip: 0xffa860, splash: 0x5fa8ff, momo: 0xff7a8a,
   pinch: 0xffd23f, rosa: 0xff6a4a, shellby: 0xff9fe8, whelk: 0x8affd8, giver: 0x5fb4ff,
   ...Object.fromEntries(Object.entries(CHAINS).map(([id, c]) => [id, c.color])) };
 const FACES = { marina: '🧜‍♀️', queen: '👸', guard: '🔱', coral: '🧜🏾‍♀️', pearl: '🧜‍♀️', mama: '💛', baby: '🍼', shelly: '🐢', whale: '🐋', tailor: '🧵', baker: '🧁', keeper: '⛲', bard: '🎶', librarian: '📚', fairy: '🧚', tico: '🐢', pip: '🐙', splash: '🐬', momo: '🐳', citizen: '🧜‍♀️', activity: '🧜🏼‍♀️', ambientSeahorse: '🌊',
   pinch: '🦀', rosa: '🦞', shellby: '🐚', whelk: '🐌', clawsworth: '🛡️', selkie: '🦭', madamePearl: '🔮',
-  granny: '👵', inky: '🐙', sandy: '🦀', puffy: '🐡', glim: '💡', luna: '🪼', bubbles: '🐬', ottie: '🦦' };
+  granny: '👵', inky: '🐙', sandy: '🦀', puffy: '🐡', glim: '💡', luna: '🪼', bubbles: '🐬', ottie: '🦦',
+  polly: '🦜', coco: '🦀', gully: '🐦', pelly: '🦢', billy: '🐐', batty: '🦇', boo: '👻', shelldon: '🐢', zip: '🦎', piggy: '🐷', leo: '🦭', kitty: '🐱', snappy: '🐊',
+  mayor: '🍃', bun: '🧁', bolt: '🔨', rio: '🦜', tuki: '🐦', flora: '🦩', hum: '🐦', pavo: '🦚', banjo: '🐒', slo: '🦥', ribbit: '🐸', kami: '🦎', zaza: '🐒' };
+// Island friends above the waves: [island, spot name, kind, model maker, how they move].
+const ISLANDERS = {
+  polly: ['pirate', 'captain', 'parrot', () => parrotModel(0x3fd14f, 0xffd23f, { hat: true })],
+  kitty: ['pirate', 'kitty', 'kitten'], coco: ['pirate', 'coco', 'coconutCrab'], gully: ['pirate', 'gully', 'seagull'],
+  pelly: ['pirate', 'pelly', 'pelican'], billy: ['pirate', 'billy', 'goat'], batty: ['pirate', 'batty', 'bat', null, 'hang'],
+  boo: ['pirate', 'boo', 'ghost', null, 'float'], shelldon: ['pirate', 'shelldon', 'tortoise'], zip: ['pirate', 'zip', 'gecko'],
+  piggy: ['pirate', 'piggy', 'piglet'], leo: ['pirate', 'leo', 'seaLion'], snappy: ['pirate', 'snappy', 'crocodile'],
+  mayor: ['paradise', 'mayor', 'leafkin', () => leafkinModel(0xffe08a, 'flower')],
+  bun: ['paradise', 'baker', 'leafkin', () => leafkinModel(0xffb8d0, 'mushroom')],
+  bolt: ['paradise', 'builder', 'leafkin', () => leafkinModel(0xd8b080, 'acorn')],
+  rio: ['paradise', 'rio', 'macaw'], tuki: ['paradise', 'tuki', 'toucan'], flora: ['paradise', 'flora', 'flamingo'],
+  hum: ['paradise', 'hum', 'hummingbird', null, 'float'], pavo: ['paradise', 'pavo', 'peacock'], banjo: ['paradise', 'banjo', 'monkey'],
+  slo: ['paradise', 'slo', 'sloth'], ribbit: ['paradise', 'ribbit', 'frog'], kami: ['paradise', 'kami', 'chameleon'], zaza: ['paradise', 'zaza', 'lemur'],
+};
+// Animals wandering each part of the islands (kinds cycle over the spots).
+const WILD = {
+  pirate: { beach: ['coconutCrab', 'seagull', 'tortoise', 'pelican'], forest: ['gecko', 'butterfly', 'piglet', 'parrot', 'firefly'],
+    cliffs: ['goat', 'seagull'], grotto: ['bat', 'firefly'], river: ['frog', 'crocodile'] },
+  paradise: { beach: ['flamingo', 'coconutCrab', 'seagull'], jungle: ['monkey', 'lemur', 'chameleon', 'frog', 'butterfly'],
+    canopy: ['macaw', 'toucan', 'parrot', 'hummingbird'], meadow: ['butterfly', 'hummingbird', 'peacock'], city: ['leafkin'] },
+};
+const FLYERS = ['seagull', 'pelican', 'parrot', 'macaw', 'toucan'], FLOATERS = ['butterfly', 'firefly', 'hummingbird', 'ghost', 'bat'],
+  HOPPERS = ['frog', 'piglet', 'kitten', 'leafkin'];
+const CHIBI = [[0xffb8d0, 'mushroom'], [0x9fe0ff, 'flower'], [0xffe08a, 'leaf'], [0xc8a0ff, 'acorn'], [0xa8f0a0, 'flower'], [0xffc890, 'mushroom']];
 const CHAIN_IDS = Object.keys(CHAINS);
 
 function starTexture(fill = '#ffe066', halo = ['rgba(255,250,200,0.9)', 'rgba(255,220,120,0)']) {
@@ -314,6 +342,11 @@ export class Story {
         return gh(cx + Math.cos(a) * rad, cz + Math.sin(a) * rad, up);
       }),
     };
+    const I = this.ctx.islands || {};
+    if (I.pirate) W.pi = I.pirate.spots;
+    if (I.paradise) W.pa = I.paradise.spots;
+    this.buildIslanders();
+    this.islandProgress();
     const big = (m, sc) => { m.scale.setScalar(sc); return m; };
     const givers = [
       ['granny', seahorseModel(0xc8a0ff, 2.4), gh(-115, 35, 4), 'seahorse'],
@@ -333,7 +366,8 @@ export class Story {
     this.chainItems = {}; // "chain:step" -> [{ i, g, got }]
     this.chainBeacons = {}; // "chain:step" -> beacon
     for (const [id, c] of Object.entries(CHAINS)) {
-      if (c.area === 'bay' && !this.ctx.bay) continue;
+      if (!this.chainOn(id)) continue;
+      const parent = this.ctx.islands?.[c.area]?.group || this.scene;
       c.steps.forEach((st, k) => {
         const key = `${id}:${k}`;
         if (st.type === 'collect') {
@@ -342,21 +376,68 @@ export class Story {
             collide(p, 1.6);
             const g = chainItemModel(st.item);
             g.position.copy(p); g.visible = false;
-            this.scene.add(g);
+            parent.add(g);
             return { i, g, got: got.includes(i) };
           });
           st.count = this.chainItems[key].length;
         } else if (st.type === 'visit') {
           const b = beaconModel(c.color);
           b.position.copy(st.where(W)); b.visible = false;
-          this.scene.add(b);
+          parent.add(b);
           this.chainBeacons[key] = b;
         }
       });
     }
   }
 
-  chainOn(id) { return this.chainItems && (CHAINS[id].area !== 'bay' || this.ctx.bay); }
+  chainOn(id) {
+    const a = CHAINS[id].area;
+    return a === 'bay' ? !!this.ctx.bay : a === 'pirate' || a === 'paradise' ? !!this.ctx.islands?.[a] : true;
+  }
+
+  // Things the islanders build as you help: Bolt's bridge gets its planks.
+  islandProgress() {
+    const q = this.state.sideQuests || {};
+    if (q.bridge === 'done' || (this.state.chainStep?.bridge || 0) >= 1) this.ctx.islands?.paradise?.finishBridge?.();
+  }
+
+  // The island friends (quest givers and chatters) and the wild animals around them.
+  buildIslanders() {
+    const I = this.ctx.islands;
+    this.landFolk = [];
+    if (!I) return;
+    for (const [id, [isl, spot, kind, make, how]] of Object.entries(ISLANDERS)) {
+      const island = I[isl], at = island?.spots.npc[spot];
+      if (!at) continue;
+      const model = make ? make() : LAND_KINDS[kind](), sc = LAND_SCALE[kind] * 1.5;
+      const folk = how === 'float' ? new Floater(island.group, kind, model, sc, { c: at, r: 0.5, speed: 0.6 })
+        : new Percher(island.group, kind, model, sc, { at: how === 'hang' ? at.clone() : at.clone().setY(island.floor(at.x, at.z, at.y + 1)), hang: how === 'hang' });
+      const n = this.addNPC(id, { root: folk.root, update: (dt) => folk.update(dt) }, folk.root.position.clone());
+      island.group.add(folk.root);
+      n.friendKind = kind; n.folk = folk;
+    }
+    for (const [isl, places] of Object.entries(WILD)) {
+      const island = I[isl];
+      if (!island) continue;
+      for (const [place, kinds] of Object.entries(places)) {
+        (island.spots.wild[place] || []).forEach((p, i) => {
+          const kind = kinds[i % kinds.length];
+          let model = LAND_KINDS[kind]();
+          if (kind === 'leafkin') { const [c, hat] = CHIBI[i % CHIBI.length]; model = leafkinModel(c, hat); }
+          const sc = LAND_SCALE[kind];
+          const floor = (x, z) => island.floor(x, z, p.y + 1);
+          const ground = p.clone().setY(floor(p.x, p.z));
+          const folk = FLYERS.includes(kind) ? new Flyer(island.group, kind, model, sc, { c: p, r: 6 + (i % 3) * 3, h: p.y + 6 + (i % 4) * 2, dir: i % 2 ? 1 : -1, friendRadius: 9 })
+            : FLOATERS.includes(kind) ? new Floater(island.group, kind, model, sc, { c: p, r: 2, h: p.y + 0.5 })
+              : HOPPERS.includes(kind) ? new Hopper(island.group, kind, model, sc, { home: ground, range: place === 'city' ? 1.2 : 3, floor })
+                : new Walker(island.group, kind, model, sc, { home: ground, range: 3, floor });
+          folk.island = island;
+          this.landFolk.push(folk);
+          this.ctx.creatures.all.push(folk);
+        });
+      }
+    }
+  }
   chainStepOf(id) { return CHAINS[id].steps[this.state.chainStep[id] || 0]; }
 
   // Talking to a chain giver: start, hint, next step, or the final treasure.
@@ -371,6 +452,7 @@ export class Story {
     if (q[id] === 'ready') {
       if (k < c.steps.length - 1) {
         this.state.chainStep[id] = k + 1; q[id] = 'active';
+        this.islandProgress();
         this.ctx.save.write(); this.tracked = this.sideShown = id; this.refreshSideQuest();
         this.bursts.emit(this.ctx.player.position.clone(), 14, 'spark', c.color, 4);
         const done = `${id}${k + 1}Done`; // a delivery already had its thank-you
@@ -701,6 +783,14 @@ export class Story {
   // The sparkle trail can't go through rock: lead the way through the tunnel (or a portal).
   route(tgt) {
     const pl = this.ctx.player, P = pl.position;
+    // up in the sky or down in the sea: lead to the surface first
+    const tgtSky = tgt.y > WORLD.surfaceY - 0.5;
+    if (tgtSky && !pl.flying) return new THREE.Vector3(P.x, WORLD.surfaceY + 4, P.z);
+    if (!tgtSky && pl.flying) {
+      const flat = Math.hypot(tgt.x - P.x, tgt.z - P.z);
+      return flat < 12 ? tgt : new THREE.Vector3(tgt.x, WORLD.surfaceY + 3, tgt.z);
+    }
+    if (pl.flying) return tgt;
     const tgtBay = tgt.z > WORLD.size / 2 - 10;
     if (pl.inTunnel) {
       const ti = tunnelInfo(P);
@@ -837,7 +927,7 @@ export class Story {
         let dd = want - n.root.rotation.y; dd = Math.atan2(Math.sin(dd), Math.cos(dd));
         n.root.rotation.y += dd * Math.min(1, dt * 3);
       }
-      const r = n.id === 'queen' ? 7 : ['mama', 'shelly', 'momo', 'pinch', 'rosa', 'shellby', 'whelk', 'clawsworth', 'selkie', 'madamePearl'].includes(n.id) || CHAIN_BY_GIVER[n.id] ? 6 : 4.5;
+      const r = n.id === 'queen' ? 7 : ['mama', 'shelly', 'momo', 'pinch', 'rosa', 'shellby', 'whelk', 'clawsworth', 'selkie', 'madamePearl'].includes(n.id) || CHAIN_BY_GIVER[n.id] || n.folk ? 6 : 4.5;
       const rr2 = ['citizen', 'activity', 'ambientSeahorse'].includes(n.id) ? 3.5 : r;
       if (d < rr2 && d < nd) { nearest = n; nd = d; }
       if (d > rr2 + 3) this.greeted.delete(n);
@@ -908,6 +998,9 @@ export class Story {
         else { this.ctx.save.write(); this.refreshQuest(true); }
       }
     }
+
+    // island animals move only while the islands are shown and near
+    for (const f of this.landFolk) if (f.island.group.visible && f.pos.distanceToSquared(P) < 200 * 200) f.update(dt);
 
     // friends: creatures you swim close to
     for (const c of this.ctx.creatures.all) {

@@ -14,6 +14,12 @@ const VOICES = {
   whelk: { pitch: 0.9, rate: 0.75 }, clawsworth: { pitch: 0.85, rate: 0.9 }, selkie: { pitch: 1.5, rate: 0.95 }, madamePearl: { pitch: 1.1, rate: 0.8 }, citizen: { pitch: 1.25, rate: 0.95 }, activity: { pitch: 1.45, rate: 0.95 },
   granny: { pitch: 1.05, rate: 0.8 }, inky: { pitch: 1.7, rate: 1.05 }, sandy: { pitch: 1.4, rate: 1.05 }, puffy: { pitch: 1.9, rate: 1.0 },
   glim: { pitch: 0.95, rate: 0.9 }, luna: { pitch: 1.5, rate: 0.8 }, bubbles: { pitch: 1.85, rate: 1.1 }, ottie: { pitch: 1.6, rate: 1.0 },
+  polly: { pitch: 1.5, rate: 1.1 }, coco: { pitch: 1.3, rate: 1.05 }, gully: { pitch: 1.7, rate: 1.1 }, pelly: { pitch: 0.95, rate: 0.9 },
+  billy: { pitch: 1.2, rate: 1.0 }, batty: { pitch: 1.9, rate: 1.1 }, boo: { pitch: 1.8, rate: 0.9 }, shelldon: { pitch: 0.7, rate: 0.75 },
+  zip: { pitch: 2.0, rate: 1.2 }, piggy: { pitch: 1.4, rate: 1.0 }, leo: { pitch: 1.1, rate: 1.0 }, kitty: { pitch: 1.75, rate: 1.0 }, snappy: { pitch: 0.8, rate: 0.95 },
+  mayor: { pitch: 1.0, rate: 0.85 }, bun: { pitch: 1.6, rate: 1.0 }, bolt: { pitch: 1.2, rate: 1.05 }, rio: { pitch: 1.55, rate: 1.1 },
+  tuki: { pitch: 1.65, rate: 1.05 }, flora: { pitch: 1.3, rate: 0.85 }, hum: { pitch: 2.0, rate: 1.2 }, pavo: { pitch: 1.05, rate: 0.9 },
+  banjo: { pitch: 1.7, rate: 1.15 }, slo: { pitch: 0.85, rate: 0.6 }, ribbit: { pitch: 1.25, rate: 1.0 }, kami: { pitch: 1.85, rate: 1.05 }, zaza: { pitch: 1.9, rate: 1.1 },
 };
 const DEFAULT = { pitch: 1.35, rate: 0.9 };
 
