@@ -21,6 +21,7 @@ import { Brushwork } from './brushwork.js';
 import { PAINT_VIEWS } from './paintviews.js';
 import { setLang, getLang, t } from './i18n.js';
 import { initAudio, setSound, sfx } from './audio.js';
+import { VoiceInput } from './voice-input.js';
 
 const params = new URLSearchParams(location.search);
 const SHOT = params.get('shot');
@@ -89,6 +90,7 @@ const ui = new UI();
 ui.settings = settings;
 ui.getFriends = () => save.state.friends;
 const story = new Story(scene, { player, city, creatures, ui, save, bay, islands });
+const voiceInput = new VoiceInput(story, ui);
 const follower = new Follower(scene, player);
 if (save.state.follower && save.state.friends.includes(save.state.follower)) follower.set(save.state.follower);
 ui.getFollower = () => follower.kind;
@@ -98,7 +100,7 @@ ui.onFollow = (kind) => {
   save.state.follower = follower.kind; save.write();
   ui.toast(t(off ? 'unfollow' : 'follow', { name: t('names.' + kind) }));
 };
-ui.onBubbleOk = () => story.advanceDialog();
+ui.onBubbleOk = () => story.dialog ? story.advanceDialog() : ui.bubble(null);
 ui.onTrack = (id) => story.track(id);
 ui.onFindGiver = () => story.findGiver();
 ui.getWardrobe = () => ({ unlocked: save.state.unlocked, outfit: save.state.outfit });
@@ -197,6 +199,7 @@ setSound(settings.sound);
 let playing = false;
 $('btnStart').addEventListener('click', () => {
   initAudio();
+  void voiceInput.init();
   setSound(settings.sound);
   $('title').classList.add('hidden');
   $('hud').classList.remove('hidden');
@@ -301,6 +304,7 @@ function frame() {
   city.update(dt, elapsed);
   creatures.update(dt, elapsed, player);
   if (!ui.wardrobeOpen) story.update(dt, elapsed, playing ? controls : shotControls);
+  if (playing) voiceInput.update();
   follower.update(dt);
 
   // deeper = darker, bluer water; above the waves: sunshine and sky

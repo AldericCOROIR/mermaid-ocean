@@ -1,4 +1,10 @@
 node_modules/
+dist/
+.local/
+android/.gradle/
+android/build/
+android/app/build/
+android/app/src/main/assets/vosk-fr/
 __pycache__/
 shots/
 shots_clean/

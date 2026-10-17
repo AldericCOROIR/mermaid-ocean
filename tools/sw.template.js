@@ -5,7 +5,13 @@ const FILES = __FILES__;
 const CACHE = 'mermaid-' + VERSION;
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // A bounded batch prevents mobile browsers from opening hundreds of media
+  // requests at once while saving the full game for offline play.
+  e.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    for (let i = 0; i < FILES.length; i += 12) await cache.addAll(FILES.slice(i, i + 12));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (e) => {

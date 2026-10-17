@@ -37,6 +37,7 @@
   <div id="joy" class="hidden"><div id="joyKnob"></div></div>
 
   <div id="rightBtns">
+    <button class="round big mic hidden" id="btnMic" aria-label="Maintenir pour parler" aria-pressed="false">🎤</button>
     <button class="round big" id="btnUp" aria-label="up">⬆️</button>
     <button class="round big" id="btnDown" aria-label="down">⬇️</button>
     <button class="round big action" id="btnAct" aria-label="action">✨</button>
@@ -91,6 +92,6 @@
 <div id="loading">🫧</div>
 
 <script type="module" src="src/main.js"></script>
-<script>if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');</script>
+<script>if ('serviceWorker' in navigator && location.protocol === 'https:' && location.hostname !== 'localhost') navigator.serviceWorker.register('sw.js');</script>
 </body>
 </html>

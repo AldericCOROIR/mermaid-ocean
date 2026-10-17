@@ -1,0 +1,8 @@
+{
+  "appId": "com.mermaidocean.game",
+  "appName": "Mermaid Ocean",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false
+  }
+}

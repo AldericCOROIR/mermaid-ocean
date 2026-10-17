@@ -50,6 +50,9 @@ button { font-family: inherit; color: var(--ink); cursor: pointer; }
 #btnUp { grid-column: 2; grid-row: 1; }
 #btnDown { grid-column: 2; grid-row: 2; }
 #btnAct { grid-column: 1; grid-row: 2; }
+#btnMic { grid-column: 1; grid-row: 1; background: rgba(255, 175, 214, .9); }
+#btnMic.listening { background: #ff547e; box-shadow: 0 0 0 10px rgba(255, 84, 126, .42); animation: micPulse .7s ease-in-out infinite alternate; }
+@keyframes micPulse { to { box-shadow: 0 0 0 18px rgba(255, 84, 126, .18); } }
 
 #bubble { position: absolute; left: 50%; bottom: calc(18px + var(--safe-b)); transform: translateX(-50%); width: min(620px, 70vw); background: var(--paper); border: 4px solid #fff; border-radius: 28px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 6px 0 rgba(20, 40, 90, .3); animation: pop .25s ease; }
 #bubbleFace { font-size: 52px; flex: none; }

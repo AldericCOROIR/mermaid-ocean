@@ -273,6 +273,8 @@ for (const src of [CHAIN_STR, SURFACE_STR]) for (const [l, groups] of Object.ent
 let lang = 'en';
 export function setLang(l) { lang = STR[l] ? l : 'en'; }
 export function getLang() { return lang; }
+// Build-time source for the offline voice catalog.
+export function voiceStrings(langCode = 'fr') { return STR[langCode]; }
 export function t(path, vars) {
   let v = path.split('.').reduce((o, k) => (o ? o[k] : undefined), STR[lang]) ?? path.split('.').reduce((o, k) => (o ? o[k] : undefined), STR.en) ?? path;
   if (vars) for (const k in vars) v = v.replace(`{${k}}`, vars[k]);

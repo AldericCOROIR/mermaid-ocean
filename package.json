@@ -1,0 +1,21 @@
+{
+  "name": "mermaid-ocean",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:web": "node tools/build-web.mjs",
+    "generate:voices": "node tools/generate-voices.mjs",
+    "sync:android": "npm run build:web && npx cap sync android",
+    "build:apk": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-apk.ps1",
+    "test:offline": "node tools/offline-playtest.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "7.6.9",
+    "@capacitor/core": "7.6.9"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "7.6.9",
+    "playwright": "^1.56.0",
+    "three": "^0.180.0"
+  }
+}
