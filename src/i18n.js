@@ -1,4 +1,5 @@
 // Short, friendly lines for a young reader. English & French.
+import { CHAIN_STR } from './i18n_chains.js';
 const STR = {
   en: {
     tagline: 'Dive into a magical sea!', start: 'Dive!', rotate: 'Turn your phone sideways 📱↔️',
@@ -263,6 +264,8 @@ const STR = {
     },
   },
 };
+
+for (const [l, groups] of Object.entries(CHAIN_STR)) for (const [k, v] of Object.entries(groups)) Object.assign(STR[l][k] ||= {}, v);
 
 let lang = 'en';
 export function setLang(l) { lang = STR[l] ? l : 'en'; }

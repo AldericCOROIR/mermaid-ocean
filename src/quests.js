@@ -2,8 +2,9 @@
 import * as THREE from 'three';
 import { WORLD, groundHeight, glowTexture, canvasTexture, rr } from './util.js';
 import { MerModel, PALETTES } from './mermaid.js';
-import { seahorseModel, turtleModel, octopusModel, dolphinModel, whaleModel } from './creatures.js';
-import { costumeCrab, lobsterModel, hermitCrabModel, snailModel, sealModel, oysterModel } from './seafolk.js';
+import { seahorseModel, turtleModel, octopusModel, dolphinModel, whaleModel, crabModel, pufferModel, jellyModel, otterModel } from './creatures.js';
+import { costumeCrab, lobsterModel, hermitCrabModel, snailModel, sealModel, oysterModel, anglerfishModel } from './seafolk.js';
+import { CHAINS, CHAIN_BY_GIVER, chainItemModel, beaconModel } from './chains.js';
 import { tunnelInfo, TUNNEL } from './util.js';
 import { paintMat } from './geom.js';
 import { collide } from './world.js';
@@ -26,12 +27,15 @@ const BABIES = {
 };
 const SIDE_IDS = ['tailor', 'keeper', 'bard', ...Object.keys(BABIES), 'whelk'];
 // Characters of the bay who just love to chat (lines rotate each visit).
-const CHATTERS = { clawsworth: 3, selkie: 3, madamePearl: 2 };
+const CHATTERS = { madamePearl: 2 };
 const TRAIL_COLORS = { main: 0xfff3a0, tailor: 0xff8fd0, keeper: 0x7ff0ff, bard: 0xc49bff,
   tico: 0x9dff8a, pip: 0xffa860, splash: 0x5fa8ff, momo: 0xff7a8a,
-  pinch: 0xffd23f, rosa: 0xff6a4a, shellby: 0xff9fe8, whelk: 0x8affd8 };
+  pinch: 0xffd23f, rosa: 0xff6a4a, shellby: 0xff9fe8, whelk: 0x8affd8,
+  ...Object.fromEntries(Object.entries(CHAINS).map(([id, c]) => [id, c.color])) };
 const FACES = { marina: '🧜‍♀️', queen: '👸', guard: '🔱', coral: '🧜🏾‍♀️', pearl: '🧜‍♀️', mama: '💛', baby: '🍼', shelly: '🐢', whale: '🐋', tailor: '🧵', baker: '🧁', keeper: '⛲', bard: '🎶', librarian: '📚', fairy: '🧚', tico: '🐢', pip: '🐙', splash: '🐬', momo: '🐳', citizen: '🧜‍♀️', activity: '🧜🏼‍♀️', ambientSeahorse: '🌊',
-  pinch: '🦀', rosa: '🦞', shellby: '🐚', whelk: '🐌', clawsworth: '🛡️', selkie: '🦭', madamePearl: '🔮' };
+  pinch: '🦀', rosa: '🦞', shellby: '🐚', whelk: '🐌', clawsworth: '🛡️', selkie: '🦭', madamePearl: '🔮',
+  granny: '👵', inky: '🐙', sandy: '🦀', puffy: '🐡', glim: '💡', luna: '🪼', bubbles: '🐬', ottie: '🦦' };
+const CHAIN_IDS = Object.keys(CHAINS);
 
 function starTexture(fill = '#ffe066', halo = ['rgba(255,250,200,0.9)', 'rgba(255,220,120,0)']) {
   return canvasTexture(128, 128, (g) => {
@@ -192,6 +196,7 @@ export class Story {
     this.buildPearls();
     this.buildCrystals();
     this.buildBabies();
+    this.buildChains();
     if (this.state.portal) ctx.bay?.setPortal(true);
     this.buildGuide();
     this.applyRewards();
@@ -230,7 +235,8 @@ export class Story {
     }
     const seen = {};
     for (const a of S.activities) {
-      const n = this.addNPC('activity', new MerModel(PALETTES[a.color]), a.pos, false);
+      // the reading mermaid sits beside the Shell Librarian, not on top of her
+      const n = this.addNPC('activity', new MerModel(PALETTES[a.color]), a.kind === 'library' ? a.pos.clone().add(new THREE.Vector3(7, 0, 3)) : a.pos, false);
       n.activity = a.kind;
       const k = seen[a.kind] = (seen[a.kind] || 0) + 1; // each one says something different
       n.line = a.kind + (a.kind === 'market' ? ((k - 1) % 3) + 1 : a.kind === 'court' ? ((k - 1) % 2) + 1 : '');
@@ -277,7 +283,7 @@ export class Story {
       this.addNPC('clawsworth', { root: big(costumeCrab(0x6fa8ff, 'knight'), 1.7) }, B.clawsworth).friendKind = 'crab';
       this.addNPC('selkie', { root: big(sealModel(), 1.4) }, B.selkie).friendKind = 'seal';
       this.addNPC('madamePearl', { root: big(oysterModel(), 1.3) }, B.madamePearl).friendKind = 'oyster';
-      for (const id of Object.keys(CHATTERS)) this.npcs.find((n) => n.id === id).noSpin = true;
+      for (const id of ['madamePearl', 'clawsworth', 'selkie']) this.npcs.find((n) => n.id === id).noSpin = true;
     }
     this.state.sideItems ||= {};
     this.babyItems = {};
@@ -294,6 +300,111 @@ export class Story {
         return { i, g, got: got.includes(i) };
       });
     }
+  }
+
+  // Chain quests: new friends in every area, each with three little jobs in a row.
+  buildChains() {
+    const gh = (x, z, up) => new THREE.Vector3(x, groundHeight(x, z) + up, z);
+    const C = WORLD.cityPos, cityY = groundHeight(C.x, C.z);
+    const W = {
+      gh, bay: this.ctx.bay,
+      city: (x, y, z) => new THREE.Vector3(C.x + x, cityY + y, C.z + z),
+      around: (cx, cz, r, n, up, seed) => Array.from({ length: n }, (_, i) => {
+        const a = seed * 1.7 + (i / n) * Math.PI * 2, rad = r * (0.75 + 0.25 * Math.sin(seed + i * 2.3));
+        return gh(cx + Math.cos(a) * rad, cz + Math.sin(a) * rad, up);
+      }),
+    };
+    const big = (m, sc) => { m.scale.setScalar(sc); return m; };
+    const givers = [
+      ['granny', seahorseModel(0xc8a0ff, 2.4), gh(-115, 35, 4), 'seahorse'],
+      ['inky', big(octopusModel(0x4fd0c0), 1.0), gh(-150, 0, 3), 'octopus'],
+      ['sandy', big(crabModel(0xff9a3c), 1.6), gh(122, 60, 0.8), 'crab'],
+      ['puffy', big(pufferModel(), 1.4), gh(125, 30, 4), 'puffer'],
+      ['glim', big(anglerfishModel(0x5f8fd0), 1.5), gh(40, 160, 6), 'anglerfish'],
+      ['luna', big(jellyModel(0xbfa8ff), 1.6), gh(80, 185, 10), 'jellyfish'],
+      ['bubbles', big(dolphinModel(), 1.0), new THREE.Vector3(15, 24, 50), 'dolphin'],
+      ['ottie', big(otterModel(), 1.2), new THREE.Vector3(-15, WORLD.surfaceY - 1.2, 55), 'otter'],
+    ];
+    for (const [id, model, pos, kind] of givers) {
+      const n = this.addNPC(id, { root: model }, pos);
+      n.friendKind = kind; n.noSpin = true;
+    }
+    this.state.chainStep ||= {};
+    this.chainItems = {}; // "chain:step" -> [{ i, g, got }]
+    this.chainBeacons = {}; // "chain:step" -> beacon
+    for (const [id, c] of Object.entries(CHAINS)) {
+      if (c.area === 'bay' && !this.ctx.bay) continue;
+      c.steps.forEach((st, k) => {
+        const key = `${id}:${k}`;
+        if (st.type === 'collect') {
+          const got = this.state.sideItems[key] || [];
+          this.chainItems[key] = st.where(W).map((p, i) => {
+            collide(p, 1.6);
+            const g = chainItemModel(st.item);
+            g.position.copy(p); g.visible = false;
+            this.scene.add(g);
+            return { i, g, got: got.includes(i) };
+          });
+          st.count = this.chainItems[key].length;
+        } else if (st.type === 'visit') {
+          const b = beaconModel(c.color);
+          b.position.copy(st.where(W)); b.visible = false;
+          this.scene.add(b);
+          this.chainBeacons[key] = b;
+        }
+      });
+    }
+  }
+
+  chainOn(id) { return this.chainItems && (CHAINS[id].area !== 'bay' || this.ctx.bay); }
+  chainStepOf(id) { return CHAINS[id].steps[this.state.chainStep[id] || 0]; }
+
+  // Talking to a chain giver: start, hint, next step, or the final treasure.
+  chainTalk(id) {
+    const q = this.state.sideQuests, c = CHAINS[id], g = c.giver;
+    const k = this.state.chainStep[id] || 0;
+    if (!q[id]) {
+      q[id] = 'active'; this.state.chainStep[id] = 0; this.state.sideItems[`${id}:0`] = [];
+      this.ctx.save.write(); this.tracked = this.sideShown = id; this.refreshSideQuest();
+      return [[g, `${id}1Quest`]];
+    }
+    if (q[id] === 'ready') {
+      if (k < c.steps.length - 1) {
+        this.state.chainStep[id] = k + 1; q[id] = 'active';
+        this.ctx.save.write(); this.tracked = this.sideShown = id; this.refreshSideQuest();
+        this.bursts.emit(this.ctx.player.position.clone(), 14, 'spark', c.color, 4);
+        const done = `${id}${k + 1}Done`; // a delivery already had its thank-you
+        return [...(t('talk.' + done) !== 'talk.' + done ? [[g, done]] : []), [g, `${id}${k + 2}Quest`]];
+      }
+      q[id] = 'done';
+      this.unlockCosmetic(...c.reward);
+      this.celebrate(this.ctx.player.position);
+      this.refreshQuest();
+      return [[g, `${id}${k + 1}Done`]];
+    }
+    if (q[id] === 'done') return [[g, `${id}After`]];
+    return [[g, 'chainHint', { goal: this.sideText(id) }]];
+  }
+
+  // Someone a chain quest asked you to visit: they answer, and the step is done.
+  chainDeliveries(npcId) {
+    const lines = [];
+    const q = this.state.sideQuests || {};
+    for (const id of CHAIN_IDS) {
+      if (q[id] !== 'active' || !this.chainOn(id)) continue;
+      const st = this.chainStepOf(id);
+      if (st.type !== 'deliver' || st.to !== npcId) continue;
+      const k = this.state.chainStep[id] || 0;
+      lines.push([npcId, `${id}${k + 1}Deliver`]);
+      this.chainReady(id);
+    }
+    return lines.length ? lines : null;
+  }
+  chainReady(id) {
+    const sq = this.state.sideQuests;
+    if (sq[id] !== 'active') return;
+    sq[id] = 'ready'; this.ctx.save.write(); this.refreshSideQuest();
+    this.ctx.ui.toast(t('side.chainReturn', { name: t('npc.' + CHAINS[id].giver) }));
   }
 
   buildPearls() {
@@ -338,18 +449,18 @@ export class Story {
     for (let i = 0; i < 14; i++) { const s = new THREE.Sprite(m.clone()); s.scale.setScalar(0.7); this.scene.add(s); this.trail.push(s); }
     // a blue star floats over everyone who has a quest to give (or a reward waiting)
     const blue = new THREE.SpriteMaterial({ map: starTexture('#5fb4ff', ['rgba(200,235,255,0.9)', 'rgba(120,190,255,0)']), transparent: true, depthWrite: false, fog: false });
-    this.giverStars = this.npcs.filter((n) => SIDE_IDS.includes(n.id)).map((n) => {
+    this.giverStars = this.npcs.filter((n) => SIDE_IDS.includes(n.id) || CHAIN_BY_GIVER[n.id]).map((n) => {
       const s = new THREE.Sprite(blue);
       s.renderOrder = 19; s.scale.setScalar(2.2);
       const box = new THREE.Box3().setFromObject(n.root);
       this.scene.add(s);
-      return { n, s, h: box.max.y - n.root.position.y + 1.1 };
+      return { n, s, qid: SIDE_IDS.includes(n.id) ? n.id : CHAIN_BY_GIVER[n.id], h: box.max.y - n.root.position.y + 1.1 };
     });
   }
 
   updateGiverStars() {
     const q = this.state.sideQuests || {};
-    for (const g of this.giverStars || []) g.s.visible = !q[g.n.id] || q[g.n.id] === 'ready';
+    for (const g of this.giverStars || []) g.s.visible = !q[g.qid] || q[g.qid] === 'ready';
   }
 
   applyRewards() {
@@ -396,15 +507,25 @@ export class Story {
     const s = this.stage;
     const txt = s === 'pearls' ? t('q.pearls', { n: this.state.pearls.length }) : s === 'crystals' ? t('q.crystals', { n: this.state.crystals.length }) : s === 'shelly' ? t('q.crystals', { n: 0 }) : t('q.' + s);
     this.ctx.ui.setQuest(txt, pulse);
-    this.ctx.ui.setCounts(this.state.pearls.length, this.state.friends.length);
+    this.ctx.ui.setCounts(this.state.pearls.length, this.state.friends.length, Object.values(this.state.sideQuests || {}).filter((v) => v === 'done').length);
     this.refreshSideQuest();
   }
 
   // Side quests in progress, each with its own goal text and trail colour.
   sideList() {
     const q = this.state.sideQuests || {};
-    return SIDE_IDS.filter((id) => q[id] === 'active' || q[id] === 'ready')
-      .map((id) => ({ id, text: t('side.' + id + (q[id] === 'ready' ? 'Return' : 'Goal'), { n: (this.state.sideItems?.[id] || []).length }), color: TRAIL_COLORS[id], icon: FACES[id] }));
+    return [...SIDE_IDS, ...CHAIN_IDS.filter((id) => this.chainOn(id))].filter((id) => q[id] === 'active' || q[id] === 'ready')
+      .map((id) => ({ id, text: this.sideText(id), color: TRAIL_COLORS[id], icon: FACES[CHAINS[id]?.giver || id] }));
+  }
+  sideText(id) {
+    const q = this.state.sideQuests || {};
+    if (CHAINS[id]) {
+      if (q[id] === 'ready') return t('side.chainReturn', { name: t('npc.' + CHAINS[id].giver) });
+      const k = this.state.chainStep[id] || 0, st = CHAINS[id].steps[k];
+      const goal = t(`side.${id}${k + 1}`);
+      return st.type === 'collect' ? `${goal} ${(this.state.sideItems[`${id}:${k}`] || []).length}/${st.count}` : goal;
+    }
+    return t('side.' + id + (q[id] === 'ready' ? 'Return' : 'Goal'), { n: (this.state.sideItems?.[id] || []).length });
   }
 
   refreshSideQuest() {
@@ -428,6 +549,17 @@ export class Story {
     if (q[id] === 'active' && BABIES[id]) {
       const P = this.ctx.player.position;
       const left = this.babyItems[id].filter((x) => !x.got).sort((a, b) => a.g.position.distanceTo(P) - b.g.position.distanceTo(P));
+      return left[0]?.g.position || null;
+    }
+    if (CHAINS[id]) {
+      const npcPos = (nid) => this.npcs.find((n) => n.id === nid)?.root.position || null;
+      if (q[id] === 'ready') return npcPos(CHAINS[id].giver);
+      if (q[id] !== 'active') return null;
+      const k = this.state.chainStep[id] || 0, st = CHAINS[id].steps[k];
+      if (st.type === 'deliver') return npcPos(st.to);
+      if (st.type === 'visit') return this.chainBeacons[`${id}:${k}`].position;
+      const P = this.ctx.player.position;
+      const left = this.chainItems[`${id}:${k}`].filter((x) => !x.got).sort((a, b) => a.g.position.distanceTo(P) - b.g.position.distanceTo(P));
       return left[0]?.g.position || null;
     }
     if (q[id] === 'active' && id === 'whelk') return this.ctx.bay.bayHouse.center.clone().add(new THREE.Vector3(0, 3, 0));
@@ -457,6 +589,9 @@ export class Story {
   talk(npc) {
     const s = this.stage, id = npc.id;
     const L = (...keys) => keys.map((k) => [id, k]);
+    const delivered = this.chainDeliveries(id);
+    if (delivered) return delivered;
+    if (CHAIN_BY_GIVER[id] && this.chainOn(CHAIN_BY_GIVER[id])) return this.chainTalk(CHAIN_BY_GIVER[id]);
     if (id === 'marina') return s === 'meet' ? L('marina1', 'marina2') : L('marina2');
     if (id === 'guard') return L('guard');
     if (npc.line) return [[id, npc.line]];
@@ -573,8 +708,8 @@ export class Story {
     this.showLine();
   }
   showLine() {
-    const [who, key] = this.dialog[0];
-    this.ctx.ui.bubble(FACES[who] || '🧜‍♀️', who === 'whale' ? t('names.whale') : t('npc.' + who), t('talk.' + key), who);
+    const [who, key, vars] = this.dialog[0];
+    this.ctx.ui.bubble(FACES[who] || '🧜‍♀️', who === 'whale' ? t('names.whale') : t('npc.' + who), t('talk.' + key, vars), who);
     sfx('talk');
   }
   advanceDialog() {
@@ -627,6 +762,35 @@ export class Story {
       }
     }
 
+    // chain quests: things to collect and places to visit for the current step
+    for (const [key, items] of Object.entries(this.chainItems)) {
+      const [id, ks] = key.split(':'), k = +ks;
+      const on = sq[id] === 'active' && (this.state.chainStep[id] || 0) === k;
+      for (const it of items) {
+        it.g.visible = on && !it.got;
+        if (!it.g.visible) continue;
+        it.g.rotation.y += dt * 1.2; it.g.position.y += Math.sin(time * 2 + it.i) * 0.004;
+        it.g.userData.glow.material.opacity = 0.55 + Math.sin(time * 3 + it.i) * 0.2;
+        if (it.g.position.distanceTo(P) < 3) {
+          it.got = true; it.g.visible = false;
+          const got = (this.state.sideItems[key] ||= []);
+          got.push(it.i);
+          this.bursts.emit(it.g.position.clone(), 16, 'spark', CHAINS[id].color, 5);
+          if (got.length >= items.length) this.chainReady(id);
+          else { this.ctx.save.write(); this.refreshSideQuest(); this.ctx.ui.toast(this.sideText(id)); }
+        }
+      }
+    }
+    for (const [key, b] of Object.entries(this.chainBeacons)) {
+      const [id, ks] = key.split(':');
+      b.visible = sq[id] === 'active' && (this.state.chainStep[id] || 0) === +ks;
+      if (!b.visible) continue;
+      b.userData.ring.rotation.z += dt * 0.8;
+      b.userData.ring.position.y = Math.sin(time * 2) * 0.3;
+      b.userData.glow.material.opacity = 0.5 + Math.sin(time * 3) * 0.2;
+      if (b.position.distanceTo(P) < 6) this.chainReady(id);
+    }
+
     // NPC idle animation, face the player when near
     let nearest = null, nd = 1e9;
     for (const n of this.npcs) {
@@ -656,7 +820,7 @@ export class Story {
         let dd = want - n.root.rotation.y; dd = Math.atan2(Math.sin(dd), Math.cos(dd));
         n.root.rotation.y += dd * Math.min(1, dt * 3);
       }
-      const r = n.id === 'queen' ? 7 : ['mama', 'shelly', 'momo', 'pinch', 'rosa', 'shellby', 'whelk', 'clawsworth', 'selkie', 'madamePearl'].includes(n.id) ? 6 : 4.5;
+      const r = n.id === 'queen' ? 7 : ['mama', 'shelly', 'momo', 'pinch', 'rosa', 'shellby', 'whelk', 'clawsworth', 'selkie', 'madamePearl'].includes(n.id) || CHAIN_BY_GIVER[n.id] ? 6 : 4.5;
       const rr2 = ['citizen', 'activity', 'ambientSeahorse'].includes(n.id) ? 3.5 : r;
       if (d < rr2 && d < nd) { nearest = n; nd = d; }
       if (d > rr2 + 3) this.greeted.delete(n);

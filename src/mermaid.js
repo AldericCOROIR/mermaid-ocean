@@ -109,6 +109,52 @@ const HAIR_STYLES = {
   },
 };
 
+// Treasures from the chain quests: a bow, a star clip, a shell crown and a flower crown.
+function extraHeadwear(head) {
+  const out = {};
+  const pm = (color, k = 0.3) => paintMat({ color, emissive: new THREE.Color(color).multiplyScalar(k) });
+  const bow = new THREE.Group();
+  const pink = pm(0xff3a8a);
+  for (const s of [-1, 1]) {
+    const loop = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), pink);
+    loop.rotation.z = s * 0.45; loop.position.x = s * 0.11; loop.scale.set(1.3, 0.8, 0.5);
+    bow.add(loop);
+  }
+  bow.add(new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), pink));
+  bow.position.set(0.26, 0.4, 0.14); bow.rotation.set(0, 0.5, -0.35); bow.scale.setScalar(1.5);
+  head.add(bow); out.bow = bow;
+  const sh = new THREE.Shape();
+  for (let i = 0; i <= 10; i++) { const a = (i / 10) * Math.PI * 2 + Math.PI / 2, r = i % 2 ? 0.075 : 0.18; i ? sh.lineTo(Math.cos(a) * r, Math.sin(a) * r) : sh.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+  const starGeo = new THREE.ExtrudeGeometry(sh, { depth: 0.03, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 1 });
+  const star = new THREE.Mesh(starGeo, pm(0xffe066, 0.45));
+  star.position.set(-0.36, 0.34, 0.2); star.rotation.set(0, -0.7, 0.3);
+  head.add(star); out.starClip = star;
+  const shells = new THREE.Group();
+  const shellGeo = new THREE.ConeGeometry(0.09, 0.3, 10, 3);
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
+    const c = new THREE.Mesh(shellGeo, pm([0xffc8e0, 0xfff4e8, 0xc8e8ff][i % 3], 0.35));
+    c.position.set(Math.cos(a) * 0.32, 0.12, Math.sin(a) * 0.32); c.rotation.set(Math.sin(a) * 0.3, 0, -Math.cos(a) * 0.3);
+    shells.add(c);
+  }
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.04, 6, 24), pm(0xfff0f6, 0.35)); band.rotation.x = Math.PI / 2;
+  shells.add(band);
+  shells.position.set(0, 0.46, -0.02); shells.rotation.x = -0.2;
+  head.add(shells); out.shellCrown = shells;
+  const flowers = new THREE.Group();
+  const vine = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.035, 6, 26), pm(0x5fcf6a, 0.25)); vine.rotation.x = Math.PI / 2;
+  flowers.add(vine);
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2;
+    const f = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), pm([0xff8fcf, 0xfff07a, 0xb08cff, 0xffffff][i % 4], 0.4));
+    f.position.set(Math.cos(a) * 0.4, 0.03, Math.sin(a) * 0.4); f.scale.set(1, 0.7, 1);
+    flowers.add(f);
+  }
+  flowers.position.set(0, 0.36, -0.02); flowers.rotation.x = -0.3;
+  head.add(flowers); out.flowerCrown = flowers;
+  return out;
+}
+
 export class MerModel {
   constructor(pal = PALETTES.player) {
     this.pal = pal;
@@ -339,8 +385,10 @@ export class MerModel {
     const tails = {
       teal: ['#3fd1c7', '#a8fff2'], rose: ['#ff7fac', '#ffe0ef'],
       sapphire: ['#448fe8', '#b9e7ff'], rainbow: ['#ff8fcf', '#9ff3ff'], pearl: ['#efe6ff', '#ffd6f0'],
+      galaxy: ['#5a3ec8', '#f0c8ff'], mint: ['#5fe0b0', '#eafff6'], candy: ['#ff8fc8', '#fff09a'], sunset: ['#ff7a4a', '#ffd88a'],
     };
-    const tops = { lavender: 0xb98cff, seaGlass: 0x69e5d2, coral: 0xff8eab, gold: 0xffd36b, shellTop: 0xffb8dc };
+    const tops = { lavender: 0xb98cff, seaGlass: 0x69e5d2, coral: 0xff8eab, gold: 0xffd36b, shellTop: 0xffb8dc,
+      berry: 0xd8407a, ocean: 0x3f7fe0, mintTop: 0x8af0c8, sunny: 0xffe14d };
     const [c1, c2] = tails[outfit.tail] || tails.teal;
     this.setTailColors(c1, c2);
     const top = tops[outfit.top] || tops.lavender;
@@ -407,6 +455,7 @@ export class MerModel {
       const hat = pirateHat(0.95);
       hat.position.set(0, 0.5, -0.02); hat.rotation.x = -0.15;
       this.head.add(hat); this.headwear.pirateHat = hat;
+      Object.assign(this.headwear, extraHeadwear(this.head));
     }
     if (kind === 'crown' && !this.crown) this.addCrown();
     if (this.crown) this.crown.visible = kind === 'crown';

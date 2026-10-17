@@ -12,6 +12,8 @@ const VOICES = {
   tico: { pitch: 1.9, rate: 0.95 }, pip: { pitch: 2.0, rate: 1.05 }, splash: { pitch: 1.8, rate: 1.1 }, momo: { pitch: 1.1, rate: 0.8 },
   ambientSeahorse: { pitch: 1.7, rate: 1.0 }, pinch: { pitch: 0.75, rate: 0.95 }, rosa: { pitch: 1.3, rate: 1.0 }, shellby: { pitch: 1.6, rate: 1.05 },
   whelk: { pitch: 0.9, rate: 0.75 }, clawsworth: { pitch: 0.85, rate: 0.9 }, selkie: { pitch: 1.5, rate: 0.95 }, madamePearl: { pitch: 1.1, rate: 0.8 }, citizen: { pitch: 1.25, rate: 0.95 }, activity: { pitch: 1.45, rate: 0.95 },
+  granny: { pitch: 1.05, rate: 0.8 }, inky: { pitch: 1.7, rate: 1.05 }, sandy: { pitch: 1.4, rate: 1.05 }, puffy: { pitch: 1.9, rate: 1.0 },
+  glim: { pitch: 0.95, rate: 0.9 }, luna: { pitch: 1.5, rate: 0.8 }, bubbles: { pitch: 1.85, rate: 1.1 }, ottie: { pitch: 1.6, rate: 1.0 },
 };
 const DEFAULT = { pitch: 1.35, rate: 0.9 };
 

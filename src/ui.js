@@ -50,7 +50,7 @@ export class UI {
     if (pulse) say(text, 'narrator', false); // a new goal is read out after the current line
     if (pulse) { const q = $('quest'); q.classList.remove('pulse'); void q.offsetWidth; q.classList.add('pulse'); }
   }
-  setCounts(pearls, friends) { $('pearlCount').textContent = pearls; $('friendCount').textContent = friends; }
+  setCounts(pearls, friends, stars = 0) { $('pearlCount').textContent = pearls; $('friendCount').textContent = friends; $('starCount').textContent = stars; }
 
   bubble(face, name, text, who) {
     const b = $('bubble');
@@ -120,9 +120,9 @@ export class UI {
     $('wardrobeTitle').textContent = t('wardrobe.title');
     $('wardrobeHint').textContent = t('wardrobe.hint');
     const groups = {
-      tail: ['teal', 'rose', 'sapphire', 'rainbow', 'pearl'],
-      top: ['lavender', 'seaGlass', 'coral', 'gold', 'shellTop'],
-      head: ['none', 'coralClip', 'pearlTiara', 'crown', 'pirateHat'],
+      tail: ['teal', 'rose', 'sapphire', 'rainbow', 'pearl', 'galaxy', 'mint', 'candy', 'sunset'],
+      top: ['lavender', 'seaGlass', 'coral', 'gold', 'shellTop', 'berry', 'ocean', 'mintTop', 'sunny'],
+      head: ['none', 'coralClip', 'pearlTiara', 'crown', 'pirateHat', 'bow', 'starClip', 'shellCrown', 'flowerCrown'],
       hair: ['long', 'bob', 'buns', 'braids', 'ponytail'],
       hairColor: ['pink', 'golden', 'chestnut', 'midnight', 'seafoam', 'lilac', 'starlight'],
     };
