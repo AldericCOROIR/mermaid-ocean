@@ -199,6 +199,28 @@ $('optVoiceMode').onclick = () => {
 };
 $('optLang').onclick = () => { settings.lang = getLang() === 'en' ? 'fr' : 'en'; setLang(settings.lang); save.write(); ui.renderMenu(); ui.applyTitle(); story.refreshQuest(); };
 $('optQuality').onclick = () => { settings.quality = { high: 'medium', medium: 'low', low: 'high' }[settings.quality]; settings.qualityManual = true; applyQuality(); save.write(); ui.renderMenu(); };
+$('optReload').onclick = async () => {
+  $('optReload').disabled = true;
+  ui.toast(t('updating'));
+  try {
+    const registration = await navigator.serviceWorker?.getRegistration();
+    if (registration) {
+      const oldController = navigator.serviceWorker.controller;
+      let found = false;
+      const onFound = () => { found = true; };
+      registration.addEventListener('updatefound', onFound);
+      await registration.update();
+      registration.removeEventListener('updatefound', onFound);
+      if (navigator.serviceWorker.controller === oldController && (found || registration.installing || registration.waiting)) {
+        await Promise.race([
+          new Promise((resolve) => navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true })),
+          new Promise((resolve) => setTimeout(resolve, 60000)),
+        ]);
+      }
+    }
+  } catch { /* offline or service worker unavailable: still reload */ }
+  location.reload();
+};
 $('optReset').onclick = () => save.reset();
 ui.applyTitle();
 setSound(settings.sound);

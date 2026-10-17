@@ -168,6 +168,7 @@ export class UI {
     $('optVoiceMode').textContent = t(s.voiceMode === 'characters' ? 'voiceCharacters' : 'voiceDevice');
     $('optLang').textContent = t('lang');
     $('optQuality').textContent = t({ high: 'qHigh', medium: 'qMed', low: 'qLow' }[s.quality]);
+    $('optReload').textContent = t('reload');
     $('optReset').textContent = t('reset');
   }
 
