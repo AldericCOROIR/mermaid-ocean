@@ -42,8 +42,9 @@ if (!['high', 'medium', 'low'].includes(settings.quality)) {
 }
 if (SHOT) settings.quality = params.get('q') || 'high';
 const QUALITY = {
-  high: { ratio: 1.5, scale: 1, dof: 2.8, paint: 1 },
-  medium: { ratio: 1.5, scale: 1, dof: 2.2, paint: 1 },
+  // Beautiful = sharpest picture (more pixels, only a soft blur far away); Smooth trades pixels for speed.
+  high: { ratio: 2, scale: 1, dof: 1.2, paint: 1 },
+  medium: { ratio: 1.25, scale: 1, dof: 1.2, paint: 1 },
   low: { ratio: 1, scale: 1, dof: 0, paint: 0 },
 };
 
