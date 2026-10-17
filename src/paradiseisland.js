@@ -347,6 +347,7 @@ export function buildParadiseIsland(scene) {
   const planks = [], windows = [], lanterns = [], buntingLines = [], ropeLines = [];
   const blossoms = [], vines = [], flowerBedFlowers = [], skyBlooms = [];
   const anim = { swings: [], lifts: [], crates: [], smoke: null };
+  const stalls = [], beds = [], swingSeats = [], slideTops = [], spotInfo = {}; // where the townsfolk work and play
 
   // ---------------- terrain ----------------
   {
@@ -506,17 +507,21 @@ export function buildParadiseIsland(scene) {
     return { top: y + top, wallH };
   }
   function flowerBed(cx, y, cz, r, rim = WOOD2, density = 3, size = 1) {
+    beds.push({ x: cx, y, z: cz, r });
     city.push({ geo: new THREE.CylinderGeometry(r, r * 1.05, 0.7, 10, 1, true), matrix: mat(cx, y + 0.35, cz), color: rim });
     city.push({ geo: new THREE.CircleGeometry(r * 0.98, 10).rotateX(-Math.PI / 2), matrix: mat(cx, y + 0.62, cz), color: 0x6fbf5a });
     for (let i = 0; i < Math.round(r * density); i++) { const a = rr(0, TAU), d = Math.sqrt(rnd()) * r * 0.8; flowerBedFlowers.push({ m: mat(cx + Math.cos(a) * d, y + 0.6, cz + Math.sin(a) * d, 0, rr(0, TAU), 0, rr(0.9, 1.4) * size), c: pick(FLOWERS) }); }
   }
-  function stall(cx, y, cz, yaw) {
+  // A market stall: counter along local x, the keeper stands behind it (-z), customers come from +z.
+  // `fixed` = { awning, goods } colours, so extra stalls do not draw from the island's random stream.
+  function stall(cx, y, cz, yaw, fixed) {
+    stalls.push({ x: cx, y, z: cz, yaw });
     const H = yt(cx, y, cz, yaw);
     const add = (geo, color, m) => city.push({ geo, color, matrix: H.clone().multiply(m) });
     add(new THREE.BoxGeometry(3.4, 1.2, 1.6), WOODL, mat(0, 0.6, 0));
     for (const sx of [-1.6, 1.6]) add(post(0.1, 3, 3), WOOD2, mat(sx, 1.5, -0.6));
-    for (let i = 0; i < 5; i++) add(new THREE.BoxGeometry(0.72, 0.12, 2.3), i % 2 ? 0xffffff : pick([0xff7a9a, 0x6fc8ff, 0xffc04a]), mat(-1.44 + i * 0.72, 3, 0.2, 0.25));
-    for (let i = 0; i < 5; i++) add(new THREE.OctahedronGeometry(0.3, 0), pick([0xff6a5a, 0xffe14a, 0xff9a3a, 0x8ae05a, 0xc86bff]), mat(-1.2 + i * 0.6, 1.4, 0.2));
+    for (let i = 0; i < 5; i++) add(new THREE.BoxGeometry(0.72, 0.12, 2.3), i % 2 ? 0xffffff : fixed ? fixed.awning : pick([0xff7a9a, 0x6fc8ff, 0xffc04a]), mat(-1.44 + i * 0.72, 3, 0.2, 0.25));
+    for (let i = 0; i < 5; i++) add(new THREE.OctahedronGeometry(0.3, 0), fixed ? fixed.goods[i % fixed.goods.length] : pick([0xff6a5a, 0xffe14a, 0xff9a3a, 0x8ae05a, 0xc86bff]), mat(-1.2 + i * 0.6, 1.4, 0.2));
   }
 
   // pointer helpers on a tree
@@ -685,7 +690,7 @@ export function buildParadiseIsland(scene) {
     const ab = at(t, t.lift + Math.PI, 11.5, y);
     city.push({ geo: new THREE.TorusGeometry(2.4, 0.2, 5, 14, Math.PI), matrix: mat(ab.x, y + 2.6, ab.z, 0, -t.lift - Math.PI + Math.PI / 2, 0), color: 0xffffff });
     for (let k = 0; k < 9; k++) blossoms.push({ m: yt(ab.x, y + 2.6, ab.z, -t.lift - Math.PI + Math.PI / 2).multiply(mat(Math.cos(k * Math.PI / 8) * 2.4, Math.sin(k * Math.PI / 8) * 2.4, 0, 0, 0, 0, 2.4)), c: pick([0xff5a7a, 0xff9ac8, 0xffffff]) });
-    for (let i = 0; i < 3; i++) { const q = at(t, i * 2.1 + 1.2, 12.6, y); city.push({ geo: new THREE.BoxGeometry(2.6, 0.3, 0.9), matrix: mat(q.x, y + 0.9, q.z, 0, -(i * 2.1 + 1.2) + Math.PI / 2, 0), color: 0xffb3dc }); }
+    for (let i = 0; i < 3; i++) { const q = at(t, i * 2.1 + 1.2, 12.6, y); (spotInfo.gardenBenches ||= []).push({ x: q.x, z: q.z, y, yaw: -(i * 2.1 + 1.2) + Math.PI / 2 }); city.push({ geo: new THREE.BoxGeometry(2.6, 0.3, 0.9), matrix: mat(q.x, y + 0.9, q.z, 0, -(i * 2.1 + 1.2) + Math.PI / 2, 0), color: 0xffb3dc }); }
   }
 
   // ---------------- branches: Rio's high branch and Slo's low branch ----------------
@@ -747,6 +752,7 @@ export function buildParadiseIsland(scene) {
       if (s > 0) buntingLines.push([ptAt(0).addScaledVector(side, hw - 0.1).add(v3(0, 3.9, 0)), ptAt(1).addScaledVector(side, hw - 0.1).add(v3(0, 3.9, 0)), sag + 1.2]);
     }
     if (isNew) { // a pile of planks waiting on the builders' side
+      spotInfo.pile = pa.clone().addScaledVector(dir, -2.6).addScaledVector(side, 2.6);
       for (let i = 0; i < 6; i++) city.push({ geo: new THREE.BoxGeometry(3.2, 0.24, 0.8), matrix: mat(...pa.clone().addScaledVector(dir, -2.6).addScaledVector(side, 2.6).add(v3(0, 0.12 + i * 0.25, 0)).toArray(), 0, rr(-0.2, 0.2) - Math.atan2(dir.z, dir.x) + Math.PI / 2, 0), color: WOODL });
     }
   }
@@ -775,6 +781,30 @@ export function buildParadiseIsland(scene) {
     col({ x: op.x, z: op.z, r: 3, bottom: y - 0.5, top: y + 5 });
     anim.smoke = v3(op.x, y + 5.2, op.z);
     t.bakerAt = at(t, aB, ri.R - 2.2, y);
+    // a bread cart a little way round the ring, so the bakery has a shop-keeper as well as the baker
+    const ctr = H.clone().multiply(mat(0, 0, hr + 2.1)), cpos = v3().setFromMatrixPosition(ctr);
+    spotInfo.bakery = { x: p.x, z: p.z, y, yaw: yawOut(aB), hr, oven: op, counter: cpos };
+    const ringCols = colliders.slice(colStart).filter((c) => c.r !== undefined && c.top > y && (c.bottom ?? -1e9) < y + 2);
+    const clearAt = (x, z, m) => {
+      const d = Math.hypot(x - t.x, z - t.z);
+      if (d < ri.inner + 0.9 || d > ri.R - 1.1) return false;
+      if (ringCols.some((c) => Math.hypot(x + C.x - c.x, z + C.z - c.z) < c.r + m)) return false;
+      if (beds.some((b) => Math.abs(b.y - y) < 1 && Math.hypot(x - b.x, z - b.z) < b.r + m)) return false;
+      return Math.hypot(x - cpos.x, z - cpos.z) > 3.2 + m;
+    };
+    let cart = null;
+    for (let k = 0; k < 60 && !cart; k++) for (const sg of [-1, 1]) {
+      const a = aB + sg * (0.35 + k * 0.02);
+      for (let rad = ri.inner + 4; rad < ri.R - 2; rad += 0.5) {
+        const c = at(t, a, rad, y), yw = yawOut(a), cs = Math.cos(yw), sn = Math.sin(yw);
+        const pt = (lx, lz) => [c.x + lx * cs + lz * sn, c.z - lx * sn + lz * cs];
+        const pts = [[-1.8, -0.9], [1.8, -0.9], [-1.8, 0.9], [1.8, 0.9], [0, -1.45], [0, 2.3], [0, 0]].map(([lx, lz]) => pt(lx, lz));
+        if (Math.hypot(...pt(0, -1.45).map((v, i) => v - [t.bakerAt.x, t.bakerAt.z][i])) < 7.5) continue;
+        if (pts.every(([x, z]) => clearAt(x, z, 0.5))) { cart = { c, yw }; break; }
+      }
+      if (cart) break;
+    }
+    if (cart) stall(cart.c.x, y, cart.c.z, cart.yw, { awning: 0xff7a9a, goods: [0xd8964a, 0xffd0a0, 0xffb3dc, 0xfff0a0] });
   }
   {
     const t = TREES[4], ri = t.ringInfo[0], y = ri.y;
@@ -805,6 +835,7 @@ export function buildParadiseIsland(scene) {
     group.add(crate);
     anim.crates.push(crate);
     col({ x: p.x, z: p.z, r: 5.2, bottom: y - 0.5, top: y + 8 });
+    spotInfo.site = { x: p.x, z: p.z, y, yaw };
     t.builderAt = at(t, aC + 0.42, ri.R - 2.2, y);
     t.zazaAt = at(t, aC + Math.PI, ri.R - 2.2, y);
   }
@@ -818,11 +849,13 @@ export function buildParadiseIsland(scene) {
     const sw = new THREE.Mesh(swingGeo, cityM);
     sw.position.copy(p); sw.rotation.order = 'YXZ'; sw.rotation.y = -a;
     group.add(sw);
+    swingSeats.push({ p: at(t, a, r.R - 2.2, r.y - 1.1 - 5.6 + 0.11), pivot: p.clone(), a, mesh: sw });
     anim.swings.push({ mesh: sw, phase: rr(0, TAU), amp: rr(0.25, 0.45) });
   }
   // slides: a twisting rainbow chute from a ring down to the ground
   function slide(t, ri, a0, turn) {
     const r = t.ringInfo[ri], pts = [];
+    slideTops.push({ t, ri, a: a0 });
     for (let i = 0; i <= 24; i++) {
       const u = i / 24, a = a0 + u * turn, rad = r.R + 1.2 + u * 9;
       const x = t.x + Math.cos(a) * rad, z = t.z + Math.sin(a) * rad;
@@ -1307,9 +1340,370 @@ export function buildParadiseIsland(scene) {
   const settleAll = (o) => { if (o instanceof THREE.Vector3) settle(o); else Object.values(o).forEach(settleAll); };
   settleAll([L.landing, L.npc, L.items, L.wild]);
 
+  // ---------------- townsfolk: who lives where, and what they are doing ----------------
+  // spots.life entries: { p: feet on the floor, yaw: facing (atan2(dx, dz)), activity, type, path?, seat?, swing? }.
+  // Everything is searched for so it lands on a free bit of floor, clear of houses, stalls, beds and trunks,
+  // at least 6 from every quest friend and clear of the quest items.
+  const lifeL = [], props = [];
+  {
+    const lr = mulberry32(31102026); // own stream: the townsfolk never shift the island's layout
+    const TYPES = ['gnome', 'fairy', 'elf', 'mushroomKid', 'acornKid', 'bunnyFolk', 'owlSage', 'flowerSprite'];
+    const KIDS = ['mushroomKid', 'acornKid', 'flowerSprite', 'fairy'];
+    const used = Object.fromEntries(TYPES.map((t) => [t, 0]));
+    const ty = (prefs = TYPES) => { let best = null, bs = 1e9; for (const t of prefs) { const sc = used[t] + lr() * 0.9; if (sc < bs) { bs = sc; best = t; } } return best; };
+    const npcFeet = Object.values(L.npc).map((p) => p.clone().add(v3(0, -1.8, 0)));
+    const itemPts = [], wildPts = [];
+    const gather = (o, out) => { if (o instanceof THREE.Vector3) out.push(o); else Object.values(o).forEach((v) => gather(v, out)); };
+    gather(L.items, itemPts); gather(L.wild, wildPts);
+    // footprints of furniture that has no collider: stalls, flower beds, benches, the fountain, site clutter
+    const foot = [];
+    const obb = (x, z, y, hw, hd, yaw) => foot.push({ x, z, y, hw, hd, yaw });
+    const circ = (x, z, y, r) => foot.push({ x, z, y, r });
+    const frame = (o, lx, lz) => { const cs = Math.cos(o.yaw), sn = Math.sin(o.yaw); return v3(o.x + lx * cs + lz * sn, o.y, o.z - lx * sn + lz * cs); };
+    for (const s of stalls) obb(s.x, s.z, s.y, 1.75, 0.85, s.yaw);
+    for (const b of beds) circ(b.x, b.z, b.y, b.r * 1.05);
+    for (const b of spotInfo.gardenBenches) obb(b.x, b.z, b.y, 1.35, 0.5, b.yaw);
+    circ(gardenT.x, gardenT.z, gardenY, 3.1);
+    const BK = spotInfo.bakery, ST = spotInfo.site;
+    obb(BK.counter.x, BK.counter.z, BK.y, 2.3, 0.65, BK.yaw);
+    for (const [lx, lz, hw, hd] of [[-5, 7.5, 1.8, 0.8], [2.5, 7.5, 0.7, 0.4]]) { const q = frame(ST, lx, lz); obb(q.x, q.z, ST.y, hw, hd, ST.yaw); }
+    for (const [lx, lz, r] of [[-6.4, 4.6, 0.65], [-5.1, 4.6, 0.65], [5.4, 5.4, 0.45]]) { const q = frame(ST, lx, lz); circ(q.x, q.z, ST.y, r); }
+    if (spotInfo.pile) circ(spotInfo.pile.x, spotInfo.pile.z, spotInfo.pile.y, 2);
+    for (let i = 0; i < 6; i++) { const q = at(hallT, i * TAU / 6 + 0.25, hallT.top[1] - 1.2, hallY); circ(q.x, q.z, hallY, 0.3); }
+    const solidCols = mine.filter((c) => c.r !== undefined && c.hw === undefined);
+    const hitCol = (p, r) => solidCols.some((c) => p.y + 1.6 > (c.bottom ?? -1e9) && p.y < c.top - 0.3 && Math.hypot(p.x + C.x - c.x, p.z + C.z - c.z) < c.r + r);
+    const hitFoot = (p, r) => foot.some((f) => {
+      if (Math.abs(f.y - p.y) > 1.2) return false;
+      const dx = p.x - f.x, dz = p.z - f.z;
+      if (f.r !== undefined) return Math.hypot(dx, dz) < f.r + r;
+      const cs = Math.cos(f.yaw), sn = Math.sin(f.yaw);
+      return Math.abs(dx * cs - dz * sn) < f.hw + r && Math.abs(dx * sn + dz * cs) < f.hd + r;
+    });
+    // solid footing: the same floor level under p and all round it (keeps clear of deck edges and stair wells)
+    const footing = (p, m = 0.8) => {
+      const tol = Math.abs(p.y - groundLocal(p.x, p.z)) < 0.05 ? 0.75 : 0.25; // hillside ground may slope, decks are flat
+      return [[0, 0], [m, 0], [-m, 0], [0, m], [0, -m]].every(([dx, dz]) => Math.abs(floorLocal(p.x + dx, p.z + dz, p.y + tol) - p.y) < tol);
+    };
+    const dryGround = (p) => p.y > SEA + 0.5 && Math.abs(groundLocal(p.x, p.z) - localHeight(p.x, p.z)) < 0.01 && (riverAt(p.x, p.z)?.d ?? 99) > 7;
+    const okSpot = (p, o = {}) => {
+      if (!p || !footing(p, o.m ?? 0.8)) return false;
+      if (Math.abs(p.y - groundLocal(p.x, p.z)) < 0.05) { // on the ground: never on the water, and dry unless it is a shore job
+        if (groundLocal(p.x, p.z) - localHeight(p.x, p.z) > 0.01 || p.y < SEA + 0.5) return false;
+        if (!o.wet && !dryGround(p)) return false;
+      }
+      if (hitCol(p, o.r ?? 0.5) || hitFoot(p, o.r ?? 0.45)) return false;
+      if (npcFeet.some((q) => q.distanceTo(p) < 6.3)) return false;
+      if (itemPts.some((q) => q.distanceTo(p) < 3.3) || wildPts.some((q) => q.distanceTo(p) < 2.3)) return false;
+      return !lifeL.some((e) => e.p.distanceTo(p) < 1.3);
+    };
+    const groupOk = (pts, o) => pts.every((p, i) => okSpot(p, o) && pts.every((q, j) => j <= i || p.distanceTo(q) > 1.25));
+    // candidates: a point on a ring / top disc / the ground, with its floor height, or null if that is not the level wanted
+    const onLevel = (x, z, y) => { const f = floorLocal(x, z, y); return Math.abs(f - y) < 0.05 ? v3(x, f, z) : null; };
+    const onGroundL = (x, z) => { const g = groundLocal(x, z), f = floorLocal(x, z, g); return Math.abs(f - g) < 0.05 ? v3(x, f, z) : null; };
+    // search round a tree (ring ri, or 'top') near angle a and distance d in from the outer edge, for a group laid out in [out, along] metres
+    const treeGroup = (ti, ri, a, d, offs = [[0, 0]], o = {}) => {
+      const t = TREES[ti], top = ri === 'top', y = top ? t.g + t.top[0] : t.ringInfo[ri].y, R = top ? t.top[1] : t.ringInfo[ri].R;
+      for (let k = 0; k < 240; k++) {
+        const aa = a + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.025 * (k > 120 ? 1.6 : 1), rad = R - d - (k > 120 ? 0.6 : 0);
+        const pts = offs.map(([out, along]) => { const q = at(t, aa + along / rad, rad + out, 0); return onLevel(q.x, q.z, y); });
+        if (pts.every(Boolean) && groupOk(pts, o)) return { pts, a: aa, t };
+      }
+      return null;
+    };
+    const SPIRAL = [[0, 0]];
+    for (let r = 0.4; r <= 6; r += 0.4) for (let k = 0; k < 12; k++) SPIRAL.push([Math.cos(k * TAU / 12 + r) * r, Math.sin(k * TAU / 12 + r) * r]);
+    // search round a target point on a given level (y) or on the ground (y undefined), group offsets in world x/z
+    const nearGroup = (x, z, y, offs = [[0, 0]], o = {}) => {
+      for (const [sx, sz] of SPIRAL) {
+        const pts = offs.map(([dx, dz]) => (y === undefined ? onGroundL(x + sx + dx, z + sz + dz) : onLevel(x + sx + dx, z + sz + dz, y)));
+        if (pts.every(Boolean) && groupOk(pts, o)) return pts;
+      }
+      return null;
+    };
+    const face = (p, q) => Math.atan2(q.x - p.x, q.z - p.z);
+    const add = (p, yaw, activity, type, extra = {}) => { used[type]++; const e = { p, yaw, activity, type, ...extra }; lifeL.push(e); return e; };
+    const misses = [];
+    const need = (v, what) => { if (!v) misses.push(what); return v; };
+    // walking routes: every 0.5 the floor continues (no drop, no climb over 0.5) and nothing solid is in the way
+    const pathOk = (pts) => {
+      for (const p of pts) if (npcFeet.some((q) => q.distanceTo(p) < 3.5) || itemPts.some((q) => q.distanceTo(p) < 2)) return false;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1], n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.5));
+        let y = a.y;
+        for (let j = 1; j <= n; j++) {
+          const x = lerp(a.x, b.x, j / n), z = lerp(a.z, b.z, j / n), f = floorLocal(x, z, y);
+          if (y - f > 0.45) return false;
+          y = f;
+          const q = v3(x, y, z);
+          if (hitCol(q, 0.35) || hitFoot(q, 0.3)) return false;
+          if (Math.abs(y - groundLocal(x, z)) < 0.05 && !dryGround(q)) return false;
+        }
+        if (Math.abs(y - b.y) > 0.1) return false;
+      }
+      return true;
+    };
+    // a route along a ring: an arc of angles at distance d in from the edge
+    const ringPath = (ti, ri, a0, a1, d) => {
+      const t = TREES[ti], r = t.ringInfo[ri], n = Math.max(2, Math.ceil(Math.abs(a1 - a0) * (r.R - d) / 2.5)), pts = [];
+      for (let i = 0; i <= n; i++) { const q = at(t, lerp(a0, a1, i / n), r.R - d, 0); const p = onLevel(q.x, q.z, r.y); if (!p) return null; pts.push(p); }
+      return pathOk(pts) ? pts : null;
+    };
+    const ringRoute = (ti, ri, a, span, d = 2.6) => {
+      for (let k = 0; k < 80; k++) { const aa = a + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.06; const pts = ringPath(ti, ri, aa, aa + span, d); if (pts && okSpot(pts[0])) return pts; }
+      return null;
+    };
+    // ---- props (merged into one small mesh) ----
+    const prop = (geo, color, m) => props.push({ geo, color, matrix: m });
+    const bench = (p, yaw, color = 0xffb3dc) => {
+      const H = yt(p.x, p.y, p.z, yaw);
+      prop(new THREE.BoxGeometry(1.5, 0.16, 0.6), color, H.clone().multiply(mat(0, 0.4, -0.05)));
+      prop(new THREE.BoxGeometry(1.5, 0.5, 0.12), color, H.clone().multiply(mat(0, 0.75, -0.38, -0.2)));
+      for (const sx of [-0.62, 0.62]) for (const sz of [-0.28, 0.18]) prop(new THREE.BoxGeometry(0.12, 0.34, 0.12), WOOD2, H.clone().multiply(mat(sx, 0.17, sz)));
+      obb(p.x, p.z, p.y, 0.8, 0.4, yaw);
+    };
+    const stool = (p, color = 0xff7a9a) => {
+      prop(new THREE.CylinderGeometry(0.34, 0.34, 0.12, 10), color, mat(p.x, p.y + 0.4, p.z));
+      for (let i = 0; i < 3; i++) { const a = i * TAU / 3; prop(new THREE.CylinderGeometry(0.05, 0.05, 0.38, 4), WOOD2, mat(p.x + Math.cos(a) * 0.22, p.y + 0.19, p.z + Math.sin(a) * 0.22)); }
+    };
+    const bucket = (p, fish = true) => {
+      prop(new THREE.CylinderGeometry(0.32, 0.26, 0.5, 10, 1, true), 0x6fc8ff, mat(p.x, p.y + 0.25, p.z));
+      prop(new THREE.CircleGeometry(0.27, 10).rotateX(-Math.PI / 2), 0x4fd8e0, mat(p.x, p.y + 0.4, p.z));
+      if (fish) prop(new THREE.OctahedronGeometry(0.16, 0), 0xffa040, mat(p.x + 0.08, p.y + 0.48, p.z, 0, 0, 0.6, 1.4, 0.6, 0.6));
+      circ(p.x, p.z, p.y, 0.4);
+    };
+    const easel = (p, yaw) => {
+      const H = yt(p.x, p.y, p.z, yaw);
+      for (const [x0, z0] of [[-0.4, 0.25], [0.4, 0.25], [0, -0.35]]) prop(stick(v3(x0, 0, z0), v3(0, 1.7, 0), 0.05, 0.04, 4), WOOD2, H);
+      prop(new THREE.BoxGeometry(1.0, 0.8, 0.06), 0xffffff, H.clone().multiply(mat(0, 1.25, 0.16, -0.12)));
+      for (let i = 0; i < 4; i++) prop(new THREE.CircleGeometry(0.12, 8), RAINBOW[i * 2 % RAINBOW.length], H.clone().multiply(mat(-0.3 + i * 0.2, 1.2 + (i % 2) * 0.15, 0.2, -0.12)));
+      circ(p.x, p.z, p.y, 0.5);
+    };
+    const tub = (p) => {
+      prop(new THREE.CylinderGeometry(0.6, 0.5, 0.55, 12, 1, true), 0xc8a070, mat(p.x, p.y + 0.28, p.z));
+      prop(new THREE.CircleGeometry(0.55, 12).rotateX(-Math.PI / 2), 0xbfefff, mat(p.x, p.y + 0.45, p.z));
+      for (let i = 0; i < 5; i++) prop(new THREE.IcosahedronGeometry(0.1 + (i % 2) * 0.05, 0), 0xffffff, mat(p.x + Math.cos(i * 1.3) * 0.3, p.y + 0.52, p.z + Math.sin(i * 1.3) * 0.3));
+      prop(new THREE.BoxGeometry(0.5, 0.06, 0.4), PETAL[0], mat(p.x + 0.25, p.y + 0.56, p.z - 0.1, 0.2, 0.4, 0.3));
+      circ(p.x, p.z, p.y, 0.65);
+    };
+    const basket = (p, fruit) => {
+      prop(new THREE.CylinderGeometry(0.55, 0.42, 0.5, 10, 1, true), 0xd8a060, mat(p.x, p.y + 0.25, p.z));
+      prop(new THREE.CircleGeometry(0.42, 10).rotateX(-Math.PI / 2), WOOD2, mat(p.x, p.y + 0.02, p.z));
+      for (let i = 0; i < 6; i++) prop(new THREE.SphereGeometry(0.17, 6, 4), fruit[i % fruit.length], mat(p.x + Math.cos(i * 1.1) * 0.25 * (i % 3 ? 1 : 0.2), p.y + 0.5 + (i % 2) * 0.12, p.z + Math.sin(i * 1.1) * 0.25 * (i % 3 ? 1 : 0.2), 0, 0, 0, 1, 1.2, 1));
+      circ(p.x, p.z, p.y, 0.6);
+    };
+    const pointAhead = (p, yaw, d) => v3(p.x + Math.sin(yaw) * d, p.y, p.z + Math.cos(yaw) * d);
+
+    // ---- every stall gets a keeper behind the counter; every other one a customer in front ----
+    stalls.forEach((s, i) => {
+      let keeper = null;
+      for (const [lx, lz] of [[0, -1.45], [0.6, -1.45], [-0.6, -1.45], [0, -1.3], [1.0, -1.4], [-1.0, -1.4]]) {
+        const q = frame(s, lx, lz), p = onLevel(q.x, q.z, s.y);
+        if (p && okSpot(p, { r: 0.3, m: 0.5 })) { keeper = p; break; }
+      }
+      if (need(keeper, 'stall keeper ' + i)) add(keeper, s.yaw, 'shop', ty(['gnome', 'elf', 'bunnyFolk', 'owlSage', 'fairy', 'flowerSprite', 'acornKid']), { stall: i });
+      if (i % 3 === 0) for (const [lx, lz] of [[0, 2.4], [0.8, 2.4], [-0.8, 2.4], [0, 2.9]]) {
+        const q = frame(s, lx, lz), p = onLevel(q.x, q.z, s.y);
+        if (p && okSpot(p)) { add(p, s.yaw + Math.PI, 'chat', ty()); break; }
+      }
+    });
+    // ---- bakery: a cook at the big oven (the baker herself stands at the counter) ----
+    {
+      const oy = yawOut(Math.atan2(BK.oven.z - TREES[3].z, BK.oven.x - TREES[3].x));
+      const front = pointAhead(BK.oven, oy, 4.1);
+      const pts = need(nearGroup(front.x, front.z, BK.y, [[0, 0]], { m: 0.6 }), 'bakery cook');
+      if (pts) add(pts[0], face(pts[0], BK.oven), 'cook', ty(['gnome', 'bunnyFolk', 'mushroomKid']));
+    }
+    // ---- building site: three builders round the half-built house and a plank carrier ----
+    {
+      const c = v3(ST.x, ST.y, ST.z);
+      for (let k = 0, n = 0; k < 64 && n < 3; k++) {
+        const ph = ST.yaw + k * TAU / 64, p = onLevel(c.x + Math.sin(ph) * 6.1, c.z + Math.cos(ph) * 6.1, ST.y);
+        if (p && okSpot(p, { m: 0.6 }) && !lifeL.some((e) => e.activity === 'build' && e.p.distanceTo(p) < 3)) { add(p, face(p, c), 'build', ty(['gnome', 'acornKid', 'bunnyFolk', 'elf'])); n++; }
+      }
+      if (lifeL.filter((e) => e.activity === 'build').length < 3) misses.push('builders');
+      const tries = [[[3.6, 8.6], [6.6, 6.9], [6.5, 1.5]], [[3.6, 8.4], [6.9, 6.0], [6.6, 0]], [[-7.8, 7.2], [-7.8, 2.0], [-6.6, -0.5]], [[0.5, 8.6], [5.0, 8.0], [6.6, 4.0]]];
+      let route = null;
+      for (const tr of tries) { const pts = tr.map(([lx, lz]) => { const q = frame(ST, lx, lz); return onLevel(q.x, q.z, ST.y); }); if (pts.every(Boolean) && okSpot(pts[0], { m: 0.5 }) && pathOk(pts)) { route = pts; break; } }
+      if (!route) route = ringRoute(4, 0, Math.atan2(ST.z - TREES[4].z, ST.x - TREES[4].x) - 0.9, -0.6);
+      if (need(route, 'site carrier')) add(route[0], face(route[0], route[1]), 'carry', ty(['bunnyFolk', 'gnome', 'acornKid']), { path: route });
+    }
+    // ---- town hall on the top of the big tree: the owl sage reads on a bench, two friends chat ----
+    {
+      const g = need(treeGroup(0, 'top', 0.1, 3.4, [[0, 0]], { m: 0.6 }), 'hall reader');
+      if (g) { const yw = yawOut(g.a); add(g.pts[0], yw, 'read', 'owlSage', { seat: 0.4 }); bench(g.pts[0], yw); }
+      const c = need(treeGroup(0, 'top', -1.6, 3.2, [[0, -0.8], [0, 0.8]]), 'hall chat');
+      if (c) { add(c.pts[0], face(c.pts[0], c.pts[1]), 'chat', ty()); add(c.pts[1], face(c.pts[1], c.pts[0]), 'chat', ty()); }
+      const w = need(treeGroup(0, 'top', 1.4, 2.6, [[0, 0]]), 'hall lookout');
+      if (w) add(w.pts[0], yawOut(w.a), 'lookout', ty(['elf', 'fairy', 'gnome']));
+    }
+    // ---- sky garden: gardeners tending the big flower beds ----
+    for (const i of [0, 2, 3]) {
+      const a = i * TAU / 5 + 0.3, bed = at(gardenT, a, 8.5, gardenY), q = at(gardenT, a - 0.1, 11.3, gardenY);
+      const pts = need(nearGroup(q.x, q.z, gardenY, [[0, 0]], { m: 0.6 }), 'sky gardener ' + i);
+      if (pts) add(pts[0], face(pts[0], bed), 'garden', ty(['flowerSprite', 'bunnyFolk', 'gnome', 'fairy']));
+    }
+    // ---- every swing has a kid on it (p is the seat at rest; the swing hangs from `swing.pivot`) ----
+    for (const s of swingSeats) {
+      const e = add(s.p.clone(), Math.atan2(-Math.sin(s.a), Math.cos(s.a)), 'swing', ty(KIDS), { swing: { pivot: s.pivot.clone(), length: 5.6 - 0.11 } });
+      Object.defineProperty(e.swing, 'mesh', { value: s.mesh, enumerable: false });
+    }
+    // ---- a kid at the top of each slide, about to whoosh down ----
+    for (const s of slideTops) {
+      const ti = TREES.indexOf(s.t), g = need(treeGroup(ti, s.ri, s.a, 1.6, [[0, 0]], { m: 0.6 }), 'slide top');
+      if (g) add(g.pts[0], yawOut(g.a), 'play', ty(KIDS));
+    }
+    // ---- walkers crossing the rope bridges, from one ring to the other ----
+    [[0, 1], [2, 1], [5, 1], [6, 1], [7, 0], [9, 0], [11, 1], [4, 0], [10, 0]].forEach(([bi, back]) => {
+      const b = F.bridges[bi];
+      if (!b || b.gap) return;
+      const dir = v3(b.bx - b.ax, 0, b.bz - b.az).normalize();
+      const yAt = (u) => lerp(b.ya, b.yb, u) - b.sag * 4 * u * (1 - u);
+      for (const ext of [1.8, 1.2, 2.6]) {
+        const s = onLevel(b.ax - dir.x * ext, b.az - dir.z * ext, b.ya), e = onLevel(b.bx + dir.x * ext, b.bz + dir.z * ext, b.yb);
+        const mid = [0.2, 0.4, 0.6, 0.8].map((u) => onLevel(lerp(b.ax, b.bx, u), lerp(b.az, b.bz, u), yAt(u)));
+        if (!s || !e || !mid.every(Boolean)) continue;
+        let pts = [s, ...mid, e];
+        if (back) pts = pts.reverse();
+        if (!okSpot(pts[0], { m: 0.6 })) pts = pts.reverse();
+        if (!okSpot(pts[0], { m: 0.6 }) || !pathOk(pts)) continue;
+        add(pts[0], face(pts[0], pts[1]), 'walk', ty());
+        lifeL.at(-1).path = pts;
+        return;
+      }
+      misses.push('bridge walker ' + bi);
+    });
+    // ---- life on the ring platforms ----
+    const ringOne = (ti, ri, a, d, act, types, o = {}) => {
+      const g = need(treeGroup(ti, ri, a, d, [[0, 0]], o), `${act} on ${ti}/${ri}`);
+      if (!g) return null;
+      const yw = o.yaw === 'along' ? yawOut(g.a) + Math.PI / 2 : o.yaw === 'in' ? yawOut(g.a) + Math.PI : yawOut(g.a);
+      return add(g.pts[0], yw, act, ty(types), o.extra || {});
+    };
+    const chatPair = (ti, ri, a, act = 'chat') => {
+      const g = need(treeGroup(ti, ri, a, 2.8, [[0, -0.8], [0, 0.8]]), `chat on ${ti}/${ri}`);
+      if (g) { add(g.pts[0], face(g.pts[0], g.pts[1]), act, ty()); add(g.pts[1], face(g.pts[1], g.pts[0]), act, ty()); }
+    };
+    ringOne(1, 0, 1.0, 2.6, 'sweep', ['gnome', 'bunnyFolk', 'acornKid'], { yaw: 'along' });
+    ringOne(2, 0, 2.5, 2.6, 'sweep', ['gnome', 'mushroomKid', 'bunnyFolk'], { yaw: 'along' });
+    ringOne(5, 1, 0.5, 2.6, 'sweep', ['gnome', 'elf', 'bunnyFolk'], { yaw: 'along' });
+    ringOne(6, 0, 4.0, 2.6, 'sweep', ['gnome', 'acornKid', 'bunnyFolk'], { yaw: 'along' });
+    chatPair(0, 1, 1.0); chatPair(1, 1, 3.0); chatPair(3, 0, 4.4); chatPair(2, 1, 5.0);
+    for (const [ti, ri, a] of [[0, 2, 4.0], [3, 2, 1.0], [5, 0, 3.0], [2, 2, 0.6]]) {
+      const e = ringOne(ti, ri, a, 2.2, 'sit', ['owlSage', 'gnome', 'bunnyFolk', 'elf', 'mushroomKid'], { m: 0.6, extra: { seat: 0.4 } });
+      if (e) bench(e.p, e.yaw, pick2(lr));
+    }
+    function pick2(r) { return [0xffb3dc, 0x9ad8ff, 0xfff0a0, 0xc8f0a8][Math.floor(r() * 4)]; }
+    // a musician with three dancers round them on the big hall ring, and a dancing pair on the bakery tree
+    {
+      const offs = [[0, 0], ...[0, 1, 2].map((k) => [Math.cos(k * TAU / 3) * 1.7, Math.sin(k * TAU / 3) * 1.7])];
+      const g = need(treeGroup(0, 0, 3.5, 3.6, offs, { m: 0.6 }), 'music group');
+      if (g) {
+        add(g.pts[0], yawOut(g.a), 'music', ty(['fairy', 'elf', 'owlSage', 'gnome']));
+        for (const p of g.pts.slice(1)) add(p, face(p, g.pts[0]), 'dance', ty(['fairy', 'flowerSprite', 'mushroomKid', 'acornKid', 'bunnyFolk']));
+      }
+      const d = need(treeGroup(3, 1, 0.8, 2.8, [[0, -0.8], [0, 0.8]]), 'dance pair');
+      if (d) { add(d.pts[0], face(d.pts[0], d.pts[1]), 'dance', ty(['fairy', 'flowerSprite', 'elf'])); add(d.pts[1], face(d.pts[1], d.pts[0]), 'dance', ty(['fairy', 'flowerSprite', 'bunnyFolk'])); }
+      const m2 = need(treeGroup(4, 0, 4.2, 3.2, [[0, 0], [-1.6, -1.2], [-1.6, 1.2]], { m: 0.6 }), 'music duo');
+      if (m2) { add(m2.pts[0], yawOut(m2.a) + Math.PI, 'music', ty(['elf', 'gnome', 'fairy'])); add(m2.pts[1], face(m2.pts[1], m2.pts[0]), 'dance', ty(KIDS)); add(m2.pts[2], face(m2.pts[2], m2.pts[0]), 'dance', ty(KIDS)); }
+    }
+    // a juggler on the west tree with two kids watching
+    {
+      const g = need(treeGroup(1, 0, 3.5, 3.4, [[0, 0], [-1.8, -1.0], [-1.8, 1.0]], { m: 0.6 }), 'juggler');
+      if (g) { add(g.pts[0], face(g.pts[0], g.pts[1].clone().lerp(g.pts[2], 0.5)), 'juggle', ty(['elf', 'gnome', 'fairy'])); for (const p of g.pts.slice(1)) add(p, face(p, g.pts[0]), 'sit', ty(KIDS)); }
+    }
+    // a painter at an easel looking out from the top ring of the hall tree
+    {
+      const g = need(treeGroup(0, 3, 0.4, 2.8, [[0, 0], [1.3, 0]], { m: 0.6 }), 'painter');
+      if (g) { const yw = yawOut(g.a); add(g.pts[0], yw, 'paint', ty(['elf', 'fairy', 'owlSage', 'flowerSprite'])); easel(g.pts[1], yw + Math.PI); }
+    }
+    ringOne(1, 2, Math.PI, 1.8, 'lookout', ['elf', 'acornKid', 'gnome']);
+    ringOne(6, 1, 2.2, 2.2, 'wave', ['fairy', 'mushroomKid', 'flowerSprite']);
+    ringOne(2, 2, 3.4, 2.4, 'read', ['owlSage', 'elf', 'acornKid']);
+    ringOne(5, 0, 5.2, 2.6, 'wave', ['bunnyFolk', 'flowerSprite', 'gnome']);
+    {
+      const g = need(treeGroup(6, 0, 0.9, 2.6, [[0, 0], [0, 1.3]], { m: 0.6 }), 'scrubber');
+      if (g) { add(g.pts[0], face(g.pts[0], g.pts[1]), 'scrub', ty(['bunnyFolk', 'gnome', 'mushroomKid'])); tub(g.pts[1]); }
+    }
+    {
+      const route = need(ringRoute(5, 0, 1.6, 0.9), 'ring carrier');
+      if (route) add(route[0], face(route[0], route[1]), 'carry', ty(['acornKid', 'bunnyFolk', 'gnome']), { path: route });
+      const r2 = need(ringRoute(0, 0, 5.2, 0.7, 2.4), 'hall ring walker');
+      if (r2) add(r2[0], face(r2[0], r2[1]), 'walk', ty(), { path: r2 });
+    }
+    // ---- the flower meadow: a dancing ring, kids playing, an old owl reading in the grass ----
+    {
+      const offs = [0, 1, 2, 3].map((k) => [Math.cos(k * TAU / 4) * 1.5, Math.sin(k * TAU / 4) * 1.5]);
+      const ca = 0.95, c = [MEADOW.x + Math.cos(ca) * 21, MEADOW.z + Math.sin(ca) * 21];
+      const g = need(nearGroup(c[0], c[1], undefined, offs), 'meadow dance');
+      if (g) { const mid = g[0].clone().lerp(g[2], 0.5); for (const p of g) add(p, face(p, mid), 'dance', ty(['fairy', 'flowerSprite', 'bunnyFolk', 'mushroomKid', 'elf'])); }
+      const k2 = need(nearGroup(MEADOW.x + Math.cos(2.6) * 13, MEADOW.z + Math.sin(2.6) * 13, undefined, [[-1.1, 0], [1.1, 0]]), 'meadow play');
+      if (k2) { add(k2[0], face(k2[0], k2[1]), 'play', ty(KIDS)); add(k2[1], face(k2[1], k2[0]), 'play', ty(KIDS)); }
+      const rd = need(nearGroup(MEADOW.x + Math.cos(4.3) * 20, MEADOW.z + Math.sin(4.3) * 20, undefined), 'meadow reader');
+      if (rd) add(rd[0], face(rd[0], v3(MEADOW.x, 0, MEADOW.z)), 'read', 'owlSage', { seat: 0 });
+      const pt = need(nearGroup(MEADOW.x + Math.cos(5.6) * 24, MEADOW.z + Math.sin(5.6) * 24, undefined, [[0, 0], [0.9, 0.9]]), 'meadow painter');
+      if (pt) { const yw = face(pt[0], pt[1]); add(pt[0], yw, 'paint', ty(['elf', 'flowerSprite', 'fairy'])); easel(pt[1], yw + Math.PI); }
+    }
+    // ---- the landing pier: a fisher sitting on the end, a friend waving to mermaids coming in ----
+    {
+      const fx = -(pierB - 0.9), f = need(nearGroup(fx, -1.0, pierY, [[0, 0]], { wet: true, m: 0.3 }), 'pier fisher');
+      if (f) { add(f[0], -Math.PI / 2, 'fish', ty(['gnome', 'bunnyFolk', 'acornKid']), { seat: 0 }); bucket(v3(f[0].x + 1.0, pierY, f[0].z + 0.9)); }
+      const w = need(nearGroup(-(pierA + 9), 1.0, pierY, [[0, 0]], { wet: true, m: 0.5 }), 'pier waver');
+      if (w) add(w[0], -Math.PI / 2, 'wave', ty(['fairy', 'mushroomKid', 'flowerSprite']));
+      const sc = v3(-coastD + 8, 0, 16);
+      const dg = need(nearGroup(sc.x + 4.6, sc.z + 1, undefined, [[0, 0]]), 'sandcastle digger');
+      if (dg) add(dg[0], face(dg[0], sc), 'dig', ty(['acornKid', 'mushroomKid', 'gnome']));
+    }
+    // ---- the pink lagoon and the lily pond: fishers on stools, a nap under a palm ----
+    {
+      const a = toLagA - 1.75, q = [LAGOON.x + Math.cos(a) * (LAGOON.r + 1.5), LAGOON.z + Math.sin(a) * (LAGOON.r + 1.5)];
+      const f = need(nearGroup(q[0], q[1], undefined, [[0, 0]], { wet: true, m: 0.5 }), 'lagoon fisher');
+      if (f) { add(f[0], face(f[0], v3(LAGOON.x, 0, LAGOON.z)), 'fish', ty(['owlSage', 'gnome', 'bunnyFolk']), { seat: 0.5 }); stool(f[0]); bucket(pointAhead(f[0], face(f[0], v3(LAGOON.x, 0, LAGOON.z)) + Math.PI / 2, 0.9)); }
+      const pa = toLagA + 0.5 + 1.15, palm = [LAGOON.x + Math.cos(pa) * (LAGOON.r + 3.5), LAGOON.z + Math.sin(pa) * (LAGOON.r + 3.5)];
+      const s = need(nearGroup(LAGOON.x + Math.cos(pa) * (LAGOON.r + 5.2), LAGOON.z + Math.sin(pa) * (LAGOON.r + 5.2), undefined, [[0, 0]], { wet: true }), 'lagoon sleeper');
+      if (s) add(s[0], face(s[0], v3(LAGOON.x, 0, LAGOON.z)), 'sleep', ty(['bunnyFolk', 'owlSage', 'mushroomKid', 'gnome']), { seat: 0 });
+      const sw = need(nearGroup(LAGOON.x + Math.cos(toLagA + 3.7) * (LAGOON.r + 4), LAGOON.z + Math.sin(toLagA + 3.7) * (LAGOON.r + 4), undefined, [[0, 0]], { wet: true }), 'lagoon kid');
+      if (sw) add(sw[0], face(sw[0], v3(LAGOON.x, 0, LAGOON.z)), 'wave', ty(KIDS));
+      const pf = need(nearGroup(POND.x + Math.cos(2.0) * (POND.r + 2.6), POND.z + Math.sin(2.0) * (POND.r + 2.6), undefined, [[0, 0]], { wet: true, m: 0.5 }), 'pond fisher');
+      if (pf) { const yw = face(pf[0], v3(POND.x, 0, POND.z)); add(pf[0], yw, 'fish', ty(['gnome', 'acornKid', 'elf']), { seat: 0.5 }); stool(pf[0], 0x6fc8ff); bucket(pointAhead(pf[0], yw - Math.PI / 2, 0.9)); }
+    }
+    // ---- the groves: fruit pickers carrying baskets to a pile, Pavo's helper, a builder's spade by the castle ----
+    const grove = (cx, cz, r0, fruit, what) => {
+      for (const rad of [9, 11, 7.5, 13]) for (let k = 0; k < 24; k++) {
+        const a0 = k * TAU / 24, pts = [];
+        for (let i = 0; i <= 5; i++) { const a = a0 + i * 0.3; const p = onGroundL(cx + Math.cos(a) * rad, cz + Math.sin(a) * rad); if (!p) break; pts.push(p); }
+        if (pts.length < 6 || !okSpot(pts[0]) || !pathOk(pts)) continue;
+        const end = pts.at(-1), bp = pointAhead(end, face(pts.at(-2), end), 1.0);
+        const b = onGroundL(bp.x, bp.z);
+        if (!b || !okSpot(b, { r: 0.3 })) continue;
+        add(pts[0], face(pts[0], pts[1]), 'carry', ty(['bunnyFolk', 'gnome', 'acornKid', 'mushroomKid']), { path: pts });
+        basket(b, fruit);
+        return;
+      }
+      misses.push(what);
+    };
+    grove(MANGO.x, MANGO.z, 9, [0xffa020, 0xff7a20, 0xffd030], 'mango carrier');
+    grove(BANANA.x, BANANA.z, 9, [0xffe14a, 0xfff07a], 'banana carrier');
+    {
+      const g = need(nearGroup(BANANA.x - 8, BANANA.z + 6, undefined), 'banana picker');
+      if (g) add(g[0], face(g[0], v3(BANANA.x, 0, BANANA.z)), 'garden', ty(['bunnyFolk', 'flowerSprite', 'elf']));
+      const mg = need(nearGroup(MANGO.x + 9, MANGO.z - 7, undefined), 'mango picker');
+      if (mg) add(mg[0], face(mg[0], v3(MANGO.x, 0, MANGO.z)), 'garden', ty(['gnome', 'acornKid', 'fairy']));
+      const pv = need(nearGroup(GARDEN.x + Math.cos(2.1) * 10.2, GARDEN.z + Math.sin(2.1) * 10.2, undefined), 'garden helper');
+      if (pv) add(pv[0], face(pv[0], v3(GARDEN.x + Math.cos(TAU / 3) * 7, 0, GARDEN.z + Math.sin(TAU / 3) * 7)), 'garden', ty(['flowerSprite', 'gnome', 'fairy']));
+    }
+    if (misses.length) console.warn('paradise island townsfolk: no room for', misses.join(', '));
+    if (props.length) { const pm = new THREE.Mesh(merge(props), cityM); pm.name = 'townProps'; group.add(pm); }
+  }
+
   // ---------------- API ----------------
   const toW = (o) => (Array.isArray(o) ? o.map(toW) : o instanceof THREE.Vector3 ? W(o) : Object.fromEntries(Object.entries(o).map(([k, v]) => [k, toW(v)])));
   const spots = { landing: W(L.landing), npc: toW(L.npc), items: toW(L.items), wild: toW(L.wild) };
+  spots.life = lifeL.map((e) => {
+    const o = { ...e, p: W(e.p) };
+    if (e.path) o.path = e.path.map(W);
+    if (e.swing) { o.swing = { pivot: W(e.swing.pivot), length: e.swing.length }; Object.defineProperty(o.swing, 'mesh', { value: e.swing.mesh, enumerable: false }); }
+    return o;
+  });
 
   function floorLocal(x, z, y) {
     let f = groundLocal(x, z);

@@ -41,7 +41,9 @@ const XSPOT = { x: C.x - 72, z: C.z - 36, r: 10 };   // X-marks-the-spot clearin
 const CAMP = { x: C.x + 100, z: C.z - 32, r: 10 };
 const SANDBAR = [[-34, 166], [-8, 174], [18, 173], [38, 165]].map(([x, z]) => [C.x + x, C.z + z]);
 const DZ = C.z - 15;                                  // the dock runs east along z = DZ
-const FLAT = [XSPOT, CAMP];
+const MARKET = { x: C.x + 132, z: C.z + 10, r: 7 };  // the village market square on the east beach
+const BAR = { x: C.x + 130.5, z: C.z - 4.5, r: 4.5 }; // the juice bar beside it
+const FLAT = [XSPOT, CAMP, MARKET, BAR];
 let flatReady = false;
 
 function coastR(th) {
@@ -365,6 +367,7 @@ export function buildPirateIsland(scene) {
   const decks = [];            // walkable things the heightfield can't express: (x, z, top) → y or -Infinity
   const glows = [], flags = [], avoid = [];
   const fires = [];
+  const VIL = {};              // village anchors that the life spots use
   const L = (base, ...a) => base.clone().multiply(mat(...a));
   const W = (base, x, y, z) => v3(x, y, z).applyMatrix4(base);
   const glow = (pos, color, size, opacity = 0.6, flicker = 0) => {
@@ -559,6 +562,7 @@ export function buildPirateIsland(scene) {
     flag(W(M, 3.4, 12, 0), SK.a + Math.PI / 2, 7, 4.4);
     cols.push({ ...xz(W(M, 3.4, 0, 0)), r: 0.6, bottom: topY, top: topY + 15 });
     discDeck(topP.x, topP.z, 4.5, topY + 0.85);
+    VIL.topM = M;
   }
   function xz(p) { return { x: p.x, z: p.z }; }
 
@@ -671,6 +675,9 @@ export function buildPirateIsland(scene) {
       cols.push({ ...xz(W(M, 0, 0, z)), r: 0.6, bottom: shipO.y - 1, top: shipO.y + h });
     }
     put('cloth', new THREE.CylinderGeometry(1.2, 1.0, 1.1, 10, 1, true).translate(0, 16, 0), 0xa8703f, M);
+    put('solid', new THREE.CircleGeometry(1.0, 10).rotateX(-Math.PI / 2).translate(0, 15.5, 0), 0x8a5a32, M); // the crow's nest floor
+    const nest = W(M, 0, 15.5, 0);
+    discDeck(nest.x, nest.z, 0.95, nest.y);
     flag(W(M, 0, 21.4, 0), shipYaw + Math.PI / 2, 4, 2.5);
     // bowsprit and its rope, cannons, anchor, plank down to the sand
     put('solid', tube(v3(0, 1.5, 13), v3(0, 4.8, 20), 0.3, 0.15, 6), 0x9a6a3e, M);
@@ -841,6 +848,263 @@ export function buildPirateIsland(scene) {
     });
   }
 
+  // ---- the pirate village on the east beach: shacks on stilts, a market, a juice bar, a washing line,
+  // a little shipyard, a swing, a garden and a sandcastle. Its own random stream, so the rest looks the same.
+  {
+    const vr = mulberry32(4471), vrr = (a, b) => a + (b - a) * vr(), vpick = (arr) => arr[Math.floor(vr() * arr.length)];
+    const gnd = (x, z) => height(x, z);
+    const box = (M, w, h, d, x, y, z, color, bucket = 'solid') => put(bucket, new THREE.BoxGeometry(w, h, d).translate(x, y, z), color, M);
+    const cyl = (M, r0, r1, h, x, y, z, color, seg = 6, bucket = 'solid') => put(bucket, new THREE.CylinderGeometry(r1, r0, h, seg).translate(x, y + h / 2, z), color, M);
+    const stilt = (x, z, y1, r = 0.16) => { const y0 = gnd(x, z) - 0.6; if (y1 - y0 > 0.2) put('solid', new THREE.CylinderGeometry(r, r * 1.15, y1 - y0, 6).translate(0, (y0 + y1) / 2, 0), 0x8a6238, mat(x, 0, z)); };
+    const roofGeo = (halfW, len, h) => { const r = halfW / 0.866; return new THREE.CylinderGeometry(r, r, len, 3, 1).rotateX(-Math.PI / 2).translate(0, r / 2, 0).scale(1, h / (1.5 * r), 1); };
+    const tri = new THREE.BufferGeometry();
+    tri.setAttribute('position', new THREE.Float32BufferAttribute([-0.22, 0, 0, 0.22, 0, 0, 0, -0.45, 0], 3));
+    tri.computeVertexNormals();
+    const PENN = [0xe8473c, 0xffd23a, 0x3ab0e8, 0x5cc24c, 0xff8ad0, 0xffffff, 0xc77dff];
+    const bunting = (a, b, sag = 0.6) => { // a rope of little pennants from a to b
+      const n = Math.max(4, Math.round(a.distanceTo(b) / 0.8)), yaw = Math.atan2(-(b.z - a.z), b.x - a.x);
+      let prev = a;
+      for (let k = 1; k <= n; k++) {
+        const t = k / n, p = v3(lerp(a.x, b.x, t), lerp(a.y, b.y, t) - Math.sin(t * Math.PI) * sag, lerp(a.z, b.z, t));
+        put('solid', tube(prev, p, 0.03, 0.03, 3), 0xfff4e2);
+        if (k < n) put('cloth', tri, PENN[(k + Math.abs(Math.floor(a.x))) % PENN.length], mat(p.x, p.y, p.z, 0, yaw, 0));
+        prev = p;
+      }
+    };
+    const pennant = (M, x, y, z, color) => { cyl(M, 0.05, 0.05, 2.2, x, y, z, 0x6a4a2a, 4); put('cloth', tri, color, L(M, x + 0.25, y + 2.1, z, 0, 0, Math.PI / 2).scale(v3(1.6, 1.6, 1.6))); };
+
+    // shacks: a room on stilts with a porch toward the sea, a pointy roof and a ladder down to the sand
+    VIL.shacks = [];
+    const shack = (x, z, yaw, wall, roof, trim) => {
+      const fl = gnd(x, z) + 0.8, M = mat(x, fl, z, 0, yaw, 0);
+      box(M, 5.4, 0.3, 6.8, 0, -0.15, 0.6, 0xb88a58);
+      for (const [px, pz] of [[-2.5, -2.6], [2.5, -2.6], [-2.5, 0.6], [2.5, 0.6], [-2.5, 3.8], [2.5, 3.8]]) { const p = W(M, px, 0, pz); stilt(p.x, p.z, fl - 0.2); }
+      box(M, 4.6, 3.1, 4.4, 0, 1.55, -0.4, wall);
+      for (const s of [-1, 1]) box(M, 0.24, 3.1, 0.24, s * 2.3, 1.55, 1.8, trim);
+      box(M, 1.1, 2.0, 0.1, 0, 1.0, 1.85, 0x6a4026);
+      put('glow', new THREE.SphereGeometry(0.08, 5, 3).translate(0.38, 1.0, 1.92), 0xffd24a, M);
+      for (const s of [-1, 1]) { box(M, 0.95, 0.95, 0.1, s * 1.5, 1.9, 1.85, trim); box(M, 0.7, 0.7, 0.12, s * 1.5, 1.9, 1.86, 0xbfeeff, 'glow'); }
+      box(M, 0.1, 0.8, 0.8, 2.32, 1.9, -0.6, trim); box(M, 0.12, 0.6, 0.6, 2.33, 1.9, -0.6, 0xbfeeff, 'glow');
+      put('solid', roofGeo(3.1, 7.2, 2.3), roof, L(M, 0, 3.05, 0.45));
+      for (const s of [-1, 1]) { box(M, 0.12, 1.0, 0.12, s * 2.55, 0.5, 3.9, trim); box(M, 0.08, 0.08, 2.2, s * 2.55, 0.95, 2.8, trim); box(M, 1.7, 0.08, 0.08, s * 1.7, 0.95, 3.9, trim); }
+      const gf = gnd(W(M, 0, 0, 4.4).x, W(M, 0, 0, 4.4).z) - fl; // the ladder down to the sand
+      for (const s of [-1, 1]) put('solid', boxBetween(v3(s * 0.45, 0, 3.95), v3(s * 0.45, gf, 4.6), 0.1, 0.1), 0x8a6238, M);
+      for (let k = 1; k < 8; k++) { const t = k / 8, y = gf * t; if (y > gf + 0.2) box(M, 0.9, 0.07, 0.16, 0, y, 3.95 + 0.65 * t, 0x8a6238); }
+      pennant(M, -1.6, 3.8, -2.2, roof === 0xffd23a ? 0xe8473c : 0xffd23a);
+      cols.push({ ...xz(W(M, 0, 0, -0.4)), hw: 2.45, hd: 2.35, yaw, top: fl + 5.4 });
+      cols.push({ ...xz(W(M, 0, 0, 2.9)), hw: 2.7, hd: 1.1, yaw, top: fl - 1.0 });
+      const pc = W(M, 0, 0, 2.9);
+      rectDeck(pc.x, pc.z, yaw, 2.6, 1.05, fl);
+      avoid.push([x, z, 7]);
+      const sh = { M, fl, yaw };
+      VIL.shacks.push(sh);
+      return sh;
+    };
+    const A = shack(C.x + 116.5, C.z + 1, Math.PI / 2, 0xffc2d4, 0xe8473c, 0xfff4e2);
+    const B = shack(C.x + 116.5, C.z + 12, Math.PI / 2, 0xbfe8ff, 0xffd23a, 0xffffff);
+    const Cs = shack(C.x + 116.5, C.z + 23, Math.PI / 2, 0xd8f5b0, 0x8a5ae0, 0xfff4e2);
+    const D = shack(C.x + 123, C.z - 33, Math.PI / 2 + 0.25, 0xffe0a8, 0x3ab0a0, 0xffffff);
+    const E = shack(C.x + 127, C.z - 46, Math.PI / 2 + 0.45, 0xe8d0ff, 0xff7a3a, 0xfff4e2);
+    const F = shack(C.x + 121, C.z + 35, Math.PI / 2 - 0.3, 0xfff0a0, 0xe8473c, 0xffffff);
+    VIL.A = A; VIL.B = B; VIL.C = Cs; VIL.D = D; VIL.E = E; VIL.F = F;
+    bunting(W(A.M, 2.4, 3.6, 1.9), W(B.M, -2.4, 3.6, 1.9), 0.5);
+    bunting(W(B.M, 2.4, 3.6, 1.9), W(Cs.M, -2.4, 3.6, 1.9), 0.5);
+
+    // market stalls: a counter under a striped awning, goods on top, the stall keeper stands behind
+    VIL.stalls = [];
+    const stall = (x, z, yaw, awn, kind) => {
+      const y = gnd(x, z), M = mat(x, y, z, 0, yaw, 0);
+      box(M, 3.2, 1.0, 1.1, 0, 0.5, 0, 0xc89a5c); box(M, 3.4, 0.12, 1.3, 0, 1.06, 0, 0x9a6a3e);
+      box(M, 3.22, 0.32, 0.05, 0, 0.75, 0.56, awn);
+      for (const s of [-1, 1]) { cyl(M, 0.08, 0.08, 2.45, s * 1.62, 0, 0.6, 0x8a6238, 5); cyl(M, 0.08, 0.08, 3.0, s * 1.62, 0, -2.0, 0x8a6238, 5); }
+      for (let k = 0; k < 6; k++) { const sx = -1.7 + (k + 0.5) * (3.4 / 6); put('cloth', boxBetween(v3(sx, 3.0, -2.2), v3(sx, 2.4, 1.0), 3.4 / 6 + 0.01, 0.05), k % 2 ? 0xfff4e4 : awn, M); }
+      for (let k = 0; k < 7; k++) put('cloth', new THREE.ConeGeometry(0.25, 0.3, 4).rotateX(Math.PI).translate(-1.45 + k * 0.48, 2.25, 1.05), k % 2 ? 0xfff4e4 : awn, M);
+      box(M, 2.0, 0.55, 0.08, 0, 3.35, -2.05, 0xfff4e2); box(M, 1.7, 0.3, 0.1, 0, 3.35, -2.05, awn);
+      const top = 1.12;
+      if (kind === 'fruit') {
+        for (let k = 0; k < 14; k++) put('solid', new THREE.IcosahedronGeometry(vrr(0.15, 0.22), 1), vpick([0xff8a2a, 0xe8304a, 0xffd23a, 0x8ad84a, 0xff6a8a]), L(M, vrr(-1.35, 1.35), top + 0.16, vrr(-0.4, 0.4)));
+        put('solid', new THREE.IcosahedronGeometry(0.38, 1), 0x5cb846, L(M, -1.1, top + 0.3, -0.1, 0, 0, 0, 1.2, 0.9, 1));
+        for (const px of [0.6, 1.1]) { put('solid', new THREE.IcosahedronGeometry(0.24, 1).scale(1, 1.4, 1), 0xe8a838, L(M, px, top + 0.3, -0.15)); put('solid', new THREE.ConeGeometry(0.16, 0.4, 5), 0x4caa44, L(M, px, top + 0.8, -0.15)); }
+        for (let k = 0; k < 3; k++) put('solid', new THREE.CylinderGeometry(0.06, 0.06, 0.5, 5).rotateZ(Math.PI / 2 + 0.3), 0xffe066, L(M, -0.3 + k * 0.1, 2.0, 0.6 + k * 0.05, 0.8, 0, 0)); // hanging bananas
+      } else if (kind === 'fish') {
+        box(M, 2.8, 0.18, 0.9, 0, top + 0.09, 0, 0x3ab0e8);
+        for (let k = 0; k < 6; k++) put('solid', new THREE.OctahedronGeometry(0.5, 0).scale(0.75, 0.2, 0.28), vpick([0xb8c8d8, 0x6ab6e8, 0xff9ab0, 0xffb03a]), L(M, -1.1 + k * 0.44, top + 0.24, vrr(-0.2, 0.2), 0, vrr(-0.4, 0.4), 0));
+        put('solid', new THREE.OctahedronGeometry(0.5, 0).scale(0.3, 0.9, 0.12), 0x6ab6e8, L(M, 1.1, 1.85, 0.6));
+        put('solid', new THREE.OctahedronGeometry(0.5, 0).scale(0.3, 0.8, 0.12), 0xff9ab0, L(M, -1.1, 1.9, 0.6));
+      } else if (kind === 'trinkets') {
+        box(M, 1.0, 0.35, 0.6, -0.9, top + 0.18, 0, 0xa0683c);
+        put('glow', lumpify(new THREE.IcosahedronGeometry(1, 1), 0.15, 3, 4).scale(0.42, 0.18, 0.26).translate(-0.9, top + 0.38, 0), 0xffd24a, M);
+        for (let k = 0; k < 9; k++) put('glow', new THREE.OctahedronGeometry(vrr(0.1, 0.16), 0), vpick([0xff5a8a, 0x5ae0ff, 0x8aff7a, 0xc77dff, 0xffd24a]), L(M, vrr(-0.2, 1.4), top + 0.14, vrr(-0.4, 0.4)));
+        for (let k = 0; k < 6; k++) put('glow', new THREE.CylinderGeometry(0.13, 0.13, 0.04, 8), 0xffd24a, L(M, vrr(0, 1.4), top + 0.03, vrr(-0.4, 0.4)));
+        put('glow', new THREE.TorusGeometry(0.35, 0.03, 4, 12), 0xfff4e2, L(M, 0.6, 1.9, 0.62)); // a pearl necklace hanging
+      } else { // hats
+        for (let k = 0; k < 3; k++) {
+          const hx = -1.0 + k, col = [0x231d36, 0xe8473c, 0x3a5ae0][k];
+          cyl(M, 0.05, 0.05, 0.35, hx, top, 0, 0x6a4a2a, 4); put('solid', new THREE.SphereGeometry(0.2, 7, 5), 0xf0d8b8, L(M, hx, top + 0.5, 0));
+          put('solid', new THREE.CylinderGeometry(0.5, 0.5, 0.08, 3).rotateY(Math.PI), col, L(M, hx, top + 0.62, 0));
+          put('solid', new THREE.CylinderGeometry(0.2, 0.26, 0.3, 8), col, L(M, hx, top + 0.78, 0));
+          put('glow', new THREE.CylinderGeometry(0.5, 0.5, 0.03, 3).rotateY(Math.PI), 0xffd24a, L(M, hx, top + 0.67, 0));
+          put('cloth', new THREE.ConeGeometry(0.06, 0.6, 4), vpick([0xff8ad0, 0xffffff, 0x5cc24c]), L(M, hx + 0.15, top + 1.05, -0.05, 0, 0, -0.5));
+        }
+      }
+      cols.push({ ...xz(W(M, 0, 0, 0)), hw: 1.7, hd: 0.65, yaw, top: y + 3.2 });
+      VIL.stalls.push({ M, yaw, kind });
+      avoid.push([x, z, 4]);
+    };
+    const my = Math.PI / 2;
+    stall(MARKET.x - 5.6, MARKET.z - 4, my, 0xff8a2a, 'fruit');
+    stall(MARKET.x - 5.6, MARKET.z + 4.5, my, 0x3ab0e8, 'fish');
+    stall(MARKET.x + 5.6, MARKET.z - 4, -my, 0xc77dff, 'trinkets');
+    stall(MARKET.x + 5.6, MARKET.z + 4.5, -my, 0xe8473c, 'hats');
+    for (const z of [-4, 4.5]) bunting(v3(MARKET.x - 4.9, MARKET.y + 3.4, MARKET.z + z - 1.6), v3(MARKET.x + 4.9, MARKET.y + 3.4, MARKET.z + z + 1.6), 0.5);
+    put('solid', new THREE.CylinderGeometry(0.15, 0.2, 7, 6).translate(0, 3.5, 0), 0x9a6a3e, mat(MARKET.x, MARKET.y, MARKET.z - 7.6));
+    flag(v3(MARKET.x, MARKET.y + 6.5, MARKET.z - 7.6), 0.3, 2.6, 1.6);
+    cols.push({ x: MARKET.x, z: MARKET.z - 7.6, r: 0.35, top: MARKET.y + 7 });
+    avoid.push([MARKET.x, MARKET.z, 11]);
+
+    // the juice bar: a stripy counter under a straw roof, a shelf of glowing juices, three stools in front
+    {
+      const x = BAR.x, z = BAR.z, yaw = Math.PI / 2, y = gnd(x, z), M = mat(x, y, z, 0, yaw, 0);
+      box(M, 5.2, 1.1, 1.0, 0, 0.55, 0, 0xffb84a);
+      for (let k = 0; k < 7; k++) box(M, 0.36, 1.1, 0.04, -2.2 + k * 0.73, 0.55, 0.51, [0xff6a8a, 0x5ad0c8, 0xfff4e2][k % 3]);
+      box(M, 5.7, 0.14, 1.35, 0, 1.17, 0, 0xb88a58);
+      box(M, 5.0, 0.12, 0.5, 0, 1.0, -2.4, 0x9a6a3e); box(M, 5.0, 0.12, 0.5, 0, 1.8, -2.4, 0x9a6a3e); box(M, 5.0, 2.4, 0.1, 0, 1.2, -2.7, 0xa8703f);
+      for (let k = 0; k < 14; k++) put('glow', new THREE.CylinderGeometry(0.12, 0.1, 0.42, 6).translate(0, 0.21, 0), vpick([0xff8a2a, 0xff5a8a, 0x8aff7a, 0xffe14a, 0xc77dff]), L(M, -2.2 + (k % 7) * 0.72, k < 7 ? 1.06 : 1.86, -2.4));
+      for (const [cx, col] of [[-1.7, 0xff8a2a], [0, 0xff5a8a], [1.7, 0x8aff7a]]) { // coconut cups with straws, one for each stool
+        put('solid', new THREE.SphereGeometry(0.22, 8, 5, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.7), 0x8a5a30, L(M, cx, 1.42, 0.25));
+        put('glow', new THREE.CircleGeometry(0.19, 8).rotateX(-Math.PI / 2), col, L(M, cx, 1.55, 0.25));
+        put('solid', new THREE.CylinderGeometry(0.02, 0.02, 0.6, 4).rotateZ(0.3), 0xffffff, L(M, cx + 0.05, 1.75, 0.25));
+      }
+      for (const [px, pz] of [[-2.75, 0.8], [2.75, 0.8], [-2.75, -2.75], [2.75, -2.75]]) cyl(M, 0.13, 0.13, 3.3, px, 0, pz, 0x8a6238, 6);
+      put('solid', new THREE.ConeGeometry(4.3, 1.9, 9).translate(0, 4.15, -1.0), 0xe8c66a, L(M, 0, 0, 0, 0, 0, 0, 1, 1, 0.82));
+      for (let k = 0; k < 18; k++) { const a = (k / 18) * Math.PI * 2; put('cloth', new THREE.ConeGeometry(0.3, 0.6, 3).rotateX(Math.PI).translate(Math.cos(a) * 4.05, 3.0, -1.0 + Math.sin(a) * 3.3), k % 2 ? 0xd8b058 : 0xf0d27a, M); }
+      put('solid', new THREE.IcosahedronGeometry(0.75, 1), 0xff8a2a, L(M, -0.9, 5.3, -1.0)); put('solid', new THREE.ConeGeometry(0.25, 0.4, 5), 0x4caa44, L(M, -0.9, 6.1, -1.0));
+      put('solid', new THREE.IcosahedronGeometry(0.6, 1).scale(1, 1.4, 1), 0xe8a838, L(M, 0.9, 5.4, -1.0));
+      for (let k = 0; k < 4; k++) put('solid', frondGeo(0.9, 0.3, 0.3, 2, false), 0x4caa44, L(M, 0.9, 6.1, -1.0, 0, k * 1.57, 0));
+      for (const sx of [-1.7, 0, 1.7]) { cyl(M, 0.07, 0.07, 0.72, sx, 0, 1.45, 0x6a4a2a, 5); put('solid', new THREE.CylinderGeometry(0.34, 0.34, 0.14, 10).translate(0, 0.79, 0), [0xff6a8a, 0x5ad0c8, 0xffd23a][Math.round(sx / 1.7) + 1], L(M, sx, 0, 1.45)); }
+      cols.push({ ...xz(W(M, 0, 0, 0)), hw: 2.85, hd: 0.68, yaw, top: y + 4 }, { ...xz(W(M, 0, 0, -2.5)), hw: 2.6, hd: 0.3, yaw, top: y + 4 });
+      VIL.bar = { M, yaw };
+      avoid.push([x, z, 7]);
+    }
+
+    // the washing line, between shacks B and C
+    {
+      const a = v3(C.x + 123.2, 0, C.z + 18), b = v3(C.x + 123.2, 0, C.z + 27);
+      a.y = gnd(a.x, a.z); b.y = gnd(b.x, b.z);
+      for (const p of [a, b]) { put('solid', new THREE.CylinderGeometry(0.1, 0.13, 2.8, 6).translate(0, 1.4, 0), 0x8a6238, mat(p.x, p.y, p.z)); cols.push({ x: p.x, z: p.z, r: 0.25, top: p.y + 2.8 }); }
+      const yaw = Math.atan2(-(b.z - a.z), b.x - a.x), n = 8;
+      const ropeAt = (t) => v3(lerp(a.x, b.x, t), lerp(a.y, b.y, t) + 2.65 - Math.sin(t * Math.PI) * 0.35, lerp(a.z, b.z, t));
+      for (let k = 0; k < n; k++) put('solid', tube(ropeAt(k / n), ropeAt((k + 1) / n), 0.025, 0.025, 3), 0xfff4e2);
+      const CL = [0xff6a8a, 0x5ad0c8, 0xffd23a, 0xffffff, 0x8a5ae0, 0xe8473c];
+      for (let k = 0; k < 6; k++) {
+        const t = 0.12 + k * 0.152, p = ropeAt(t), c = CL[k];
+        if (k % 3 === 0) { put('cloth', new THREE.PlaneGeometry(1.0, 0.8).translate(0, -0.45, 0), c, mat(p.x, p.y, p.z, 0, yaw, 0)); for (const s of [-1, 1]) put('cloth', new THREE.PlaneGeometry(0.3, 0.45).translate(s * 0.6, -0.25, 0), c, mat(p.x, p.y, p.z, 0, yaw, 0)); }
+        else if (k % 3 === 1) { for (const s of [-1, 1]) put('cloth', new THREE.PlaneGeometry(0.35, 0.95).translate(s * 0.22, -0.5, 0), c, mat(p.x, p.y, p.z, 0, yaw, 0)); put('cloth', new THREE.PlaneGeometry(0.8, 0.25).translate(0, -0.12, 0), c, mat(p.x, p.y, p.z, 0, yaw, 0)); }
+        else for (const s of [-0.18, 0.18]) put('cloth', new THREE.PlaneGeometry(0.16, 0.6).translate(s, -0.3, 0), k === 2 ? 0xffd23a : 0xe8473c, mat(p.x, p.y, p.z, 0, yaw, 0));
+      }
+      const bk = v3(a.x + 1.0, 0, a.z + 0.6); bk.y = gnd(bk.x, bk.z); // the laundry basket
+      put('solid', new THREE.CylinderGeometry(0.5, 0.4, 0.5, 10, 1, true).translate(0, 0.25, 0), 0xd8b070, mat(bk.x, bk.y, bk.z));
+      put('cloth', new THREE.SphereGeometry(0.42, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.5, 1).translate(0, 0.42, 0), 0xffffff, mat(bk.x, bk.y, bk.z));
+      VIL.wash = { a, b, basket: bk };
+      avoid.push([a.x, (a.z + b.z) / 2, 6]);
+    }
+
+    // the shipyard: a little boat half built on a cradle, ribs still showing, planks and a saw horse
+    {
+      const x = C.x + 139, z = C.z + 29, yaw = Math.PI / 2, y = gnd(x, z), M = mat(x, y, z, 0, yaw, 0);
+      const hy = 1.75;
+      put('cloth', new THREE.SphereGeometry(1, 16, 6, 0, Math.PI * 2, Math.PI * 0.57, Math.PI * 0.43), 0xd88a4a, L(M, 0, hy, 0, 0, 0, 0, 1.7, 1.25, 3.7));
+      for (let k = 0; k < 7; k++) {
+        const lz = -2.7 + k * 0.9, f = Math.sqrt(Math.max(0.05, 1 - (lz / 3.7) ** 2));
+        put('solid', new THREE.TorusGeometry(1.7 * f, 0.07, 4, 10, Math.PI).rotateZ(Math.PI), 0xb07a48, L(M, 0, hy, lz, 0, 0, 0, 1, 1.25 / 1.7, 1));
+      }
+      put('solid', new THREE.BoxGeometry(0.22, 0.25, 7.6).translate(0, hy - 1.25, 0), 0x8a5a32, M);
+      put('solid', tube(v3(0, hy - 1.2, 3.6), v3(0, hy + 0.6, 4.1), 0.14, 0.1, 5), 0x8a5a32, M); // stem post
+      for (const s of [-1, 1]) put('solid', new THREE.BoxGeometry(0.12, 0.12, 7.0).translate(s * 1.6, hy - 0.35, 0), 0xffd23a, M);
+      for (const lz of [-2.4, 0, 2.4]) { const p = W(M, 0, 0, lz), gy = gnd(p.x, p.z); put('solid', new THREE.BoxGeometry(2.0, hy - 1.1 - (gy - y) + 0.4, 0.5).translate(0, (hy - 1.1 + (gy - y) - 0.4) / 2, lz), 0x8a6238, M); }
+      for (const s of [-1, 1]) { const p0 = W(M, s * 0.8, 0, 3.6), p1 = W(M, s * 0.8, 0, 11); p0.y = gnd(p0.x, p0.z) + 0.1; p1.y = Math.max(gnd(p1.x, p1.z), SY - 0.6) + 0.1; put('solid', boxBetween(p0, p1, 0.3, 0.15), 0xa77a4a); }
+      for (let k = 0; k < 5; k++) put('solid', new THREE.BoxGeometry(0.5, 0.14, 3.6).translate(0, 0.07 + k * 0.15, 0), k % 2 ? 0xc89a5c : 0xb88a58, L(M, -2.4, 0, -4.6 + k * 0.02, 0, 1.4 + k * 0.05, 0));
+      for (const lz of [-1.0, 1.0]) for (const s of [-1, 1]) put('solid', new THREE.BoxGeometry(0.1, 1.0, 0.1).translate(0, 0.45, 0), 0x8a6238, L(M, -3.3 + s * 0.3, 0, -1.6 + lz * 0.6, 0, 0, s * 0.3));
+      put('solid', new THREE.BoxGeometry(0.15, 0.12, 1.8).translate(-3.3, 0.9, -1.6), 0x8a6238, M);
+      put('solid', new THREE.BoxGeometry(0.3, 0.08, 2.4).translate(-3.3, 1.0, -1.6), 0xd8b070, M);
+      put('solid', new THREE.CylinderGeometry(0.16, 0.2, 6.5, 6).rotateX(Math.PI / 2).translate(2.8, 0.2, -0.5), 0x9a6a3e, M); // the mast, waiting
+      cyl(M, 0.3, 0.26, 0.45, -1.4, 0, -4.6, 0xffffff, 8); put('solid', new THREE.CircleGeometry(0.27, 8).rotateX(-Math.PI / 2), 0xffd23a, L(M, -1.4, 0.46, -4.6)); // paint pot
+      put('solid', new THREE.CylinderGeometry(0.15, 0.2, 6, 6).translate(0, 3, 0), 0x9a6a3e, L(M, -3.2, 0, -4.2));
+      flag(W(M, -3.2, 5.6, -4.2), yaw + 0.2, 2.4, 1.5);
+      cols.push({ ...xz(W(M, 0, 0, 0.2)), hw: 1.9, hd: 4.1, yaw, top: y + 3 }, { ...xz(W(M, -3.2, 0, -4.2)), r: 0.3, top: y + 6 },
+        { ...xz(W(M, -2.4, 0, -4.6)), hw: 0.6, hd: 1.9, yaw: yaw + 1.4, top: y + 0.8 });
+      VIL.yard = { M, yaw };
+      avoid.push([x, z, 8]);
+    }
+
+    // a rope swing near shack F, a sandcastle, a beach umbrella and a vegetable garden
+    {
+      const x = C.x + 128, z = C.z + 37, yaw = Math.PI / 2, y = gnd(x, z), M = mat(x, y, z, 0, yaw, 0);
+      for (const s of [-1, 1]) for (const d of [-1, 1]) put('solid', boxBetween(v3(s * 1.6, 3.2, 0), v3(s * 1.9, -0.2, d * 1.1), 0.16, 0.16), 0x8a6238, M);
+      put('solid', new THREE.CylinderGeometry(0.12, 0.12, 3.6, 6).rotateZ(Math.PI / 2).translate(0, 3.2, 0), 0x8a6238, M);
+      for (const s of [-1, 1]) put('solid', new THREE.CylinderGeometry(0.025, 0.025, 2.45, 3).translate(s * 0.45, 1.97, 0), 0xfff4e2, M);
+      put('solid', new THREE.BoxGeometry(1.1, 0.1, 0.4).translate(0, 0.72, 0), 0xe8473c, M);
+      for (const s of [-1, 1]) cols.push({ ...xz(W(M, s * 1.8, 0, 0)), r: 0.35, top: y + 3.3 });
+      VIL.swing = { M, yaw };
+    }
+    {
+      const x = C.x + 138.5, z = C.z - 40, y = gnd(x, z), M = mat(x, y, z);
+      cyl(M, 1.3, 1.1, 0.5, 0, -0.1, 0, 0xf2d48a, 10); cyl(M, 0.75, 0.65, 0.6, 0, 0.4, 0, 0xf2d48a, 8);
+      for (let k = 0; k < 4; k++) { const a = k * 1.57 + 0.4; cyl(M, 0.3, 0.25, 0.75, Math.cos(a) * 1.05, 0.2, Math.sin(a) * 1.05, 0xf2d48a, 6); put('solid', new THREE.ConeGeometry(0.3, 0.4, 6).translate(0, 1.15, 0), 0xe8c070, L(M, Math.cos(a) * 1.05, 0, Math.sin(a) * 1.05)); }
+      put('solid', new THREE.ConeGeometry(0.6, 0.7, 7).translate(0, 1.35, 0), 0xe8c070, M);
+      cyl(M, 0.02, 0.02, 0.8, 0, 1.6, 0, 0x6a4a2a, 3); put('cloth', tri, 0xe8473c, L(M, 0.22, 2.35, 0, 0, 0, Math.PI / 2));
+      cyl(M, 0.25, 0.32, 0.4, 1.9, 0, 0.9, 0x3ab0e8, 8); cyl(M, 0.2, 0.26, 0.35, -1.7, 0, -1.1, 0xff6a8a, 8); // buckets
+      put('solid', boxBetween(v3(-1.5, 0.05, 1.4), v3(-2.3, 0.05, 2.1), 0.25, 0.05), 0xffd23a, M); // spade
+      VIL.castle = v3(x, y, z);
+      avoid.push([x, z, 4]);
+    }
+    {
+      const x = C.x + 134.5, z = C.z - 52, y = gnd(x, z), M = mat(x, y, z, 0, 0.6, 0);
+      put('solid', new THREE.BoxGeometry(1.2, 0.04, 2.4).translate(0, 0.03, 0), 0x3ab0e8, M);
+      for (let k = 0; k < 4; k++) put('solid', new THREE.BoxGeometry(1.21, 0.05, 0.25).translate(0, 0.04, -0.9 + k * 0.6), 0xfff4e2, M);
+      put('solid', new THREE.CylinderGeometry(0.05, 0.05, 2.8, 4).translate(0.9, 1.3, -0.6), 0xfff4e2, L(M, 0, 0, 0, 0, 0, -0.15));
+      for (let k = 0; k < 8; k++) { const g = new THREE.ConeGeometry(1.7, 0.7, 8, 1, true, k * Math.PI / 4, Math.PI / 4).translate(0, 2.7, 0); put('cloth', g, k % 2 ? 0xfff4e2 : 0xff6a8a, L(M, 1.3, 0, -0.6, 0, 0, -0.15)); }
+      VIL.towel = { M, yaw: 0.6 };
+      avoid.push([x, z, 4]);
+    }
+    {
+      const x = C.x + 131, z = C.z - 38, yaw = 0.25, y = gnd(x, z), M = mat(x, y, z, 0, yaw, 0);
+      box(M, 3.2, 0.3, 1.4, 0, 0.15, 0, 0x7a5232);
+      for (const s of [-1, 1]) box(M, 3.3, 0.35, 0.1, 0, 0.17, s * 0.72, 0xb88a58);
+      for (let k = 0; k < 5; k++) { put('solid', new THREE.ConeGeometry(0.1, 0.4, 5).rotateX(Math.PI).translate(0, 0.35, 0), 0xff8a2a, L(M, -1.3 + k * 0.6, 0, -0.3)); put('solid', fernGeo().scale(0.25, 0.25, 0.25), 0xffffff, L(M, -1.3 + k * 0.6, 0.3, -0.3)); }
+      for (let k = 0; k < 4; k++) { put('cloth', bloomGeo(), vpick([0xff5a8a, 0xffd23a, 0xc77dff]), L(M, -1.1 + k * 0.7, 0.2, 0.35, 0, k, 0, 0.6)); put('cloth', stemGeo(), 0xffffff, L(M, -1.1 + k * 0.7, 0.2, 0.35, 0, k, 0, 0.6)); }
+      put('solid', new THREE.CylinderGeometry(0.25, 0.18, 0.35, 8, 1, true).translate(0, 0.17, 0), 0x3ab0e8, L(M, 2.1, 0, 0.6)); // watering can
+      put('solid', tube(v3(2.3, 0.25, 0.6), v3(2.7, 0.45, 0.6), 0.04, 0.03, 4), 0x3ab0e8, M);
+      cols.push({ ...xz(W(M, 0, 0, 0)), hw: 1.7, hd: 0.75, yaw, top: y + 0.6 });
+      VIL.garden = { M, yaw };
+      avoid.push([x, z, 4]);
+    }
+    // a hammock at the camp, between two posts
+    {
+      const a = v3(CAMP.x - 6.5, CAMP.y, CAMP.z - 7.5), b = v3(CAMP.x - 2, CAMP.y, CAMP.z - 11.5);
+      for (const p of [a, b]) { put('solid', new THREE.CylinderGeometry(0.14, 0.17, 2.4, 6).translate(0, 1.2, 0), 0x8a6238, mat(p.x, p.y, p.z)); cols.push({ x: p.x, z: p.z, r: 0.3, top: p.y + 2.4 }); }
+      const len = Math.hypot(b.x - a.x, b.z - a.z), yaw = Math.atan2(-(b.z - a.z), b.x - a.x);
+      const g = new THREE.PlaneGeometry(len - 0.6, 1.1, 8, 2).rotateX(-Math.PI / 2), p = g.attributes.position, col = new Float32Array(p.count * 3);
+      for (let i = 0; i < p.count; i++) { const u = p.getX(i) / (len - 0.6) + 0.5, w = p.getZ(i); p.setY(i, 2.1 - Math.sin(u * Math.PI) * 1.1 + w * w * 0.6); const c = K(Math.floor(u * 8) % 2 ? 0xffd23a : 0x3ab0e8); col.set([c.r, c.g, c.b], i * 3); }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
+      put('cloth', g, 0xffffff, mat((a.x + b.x) / 2, CAMP.y, (a.z + b.z) / 2, 0, yaw, 0));
+      for (const [p, s] of [[a, 1], [b, -1]]) put('solid', tube(v3(p.x, p.y + 2.2, p.z), v3(p.x + (b.x - a.x) / len * 0.3 * s, p.y + 2.1, p.z + (b.z - a.z) / len * 0.3 * s), 0.03, 0.03, 3), 0xfff4e2);
+      VIL.hammock = { p: v3((a.x + b.x) / 2, CAMP.y, (a.z + b.z) / 2), yaw: Math.atan2(b.x - a.x, b.z - a.z) };
+    }
+    // a map table in the grotto, a stool and a gem basket for the juggler
+    {
+      const M = L(SKM, -19, HALL_FLOOR, -7, 0, 0.6, 0);
+      crate(M, 1.0);
+      put('solid', new THREE.PlaneGeometry(0.9, 0.7).rotateX(-Math.PI / 2).translate(0, 1.02, 0), 0xf2e2b8, L(M, 0, 0, 0, 0, 0.3, 0));
+      put('solid', new THREE.BoxGeometry(0.08, 0.12, 0.08).translate(0.2, 1.06, 0.1), 0xd8342c, M);
+      put('glow', new THREE.CylinderGeometry(0.12, 0.14, 0.3, 6).translate(-0.3, 1.15, -0.2), 0xffd27a, M);
+      VIL.mapTable = W(M, 0, 0, 0);
+      const J = L(SKM, 5, HALL_FLOOR, 1);
+      put('solid', new THREE.CylinderGeometry(0.4, 0.32, 0.4, 10, 1, true).translate(0, 0.2, 0), 0xd8b070, J);
+      for (let k = 0; k < 5; k++) put('glow', new THREE.OctahedronGeometry(0.13, 0), [0xff5a8a, 0x5ae0ff, 0x8aff7a, 0xc77dff, 0xffd24a][k], L(J, vrr(-0.2, 0.2), 0.42, vrr(-0.2, 0.2)));
+    }
+  }
+
   // ---- story spots (x,z first, so plants keep clear of them) ----
   const beachAt = (th, t = 0.9) => { const r = coastR(th) * t; return v3(C.x + Math.cos(th) * r, 0, C.z + Math.sin(th) * r); };
   const npcXZ = {
@@ -1005,7 +1269,7 @@ export function buildPirateIsland(scene) {
   const ledgeSpot = (l) => at(skullWorld(l.u + l.du * 1.5 - l.dw * 2, 0, l.w + l.dw * 1.5 + l.du * 2), 1.6, l.top + 1);
   const grottoAt = (u, w, up = 1.8) => at(G(u, w), up, 86);
   const toCentre = ([u, w], k) => { const d = Math.hypot(u, w + 5); return [u - (u / d) * k, w - ((w + 5) / d) * k]; };
-  const forestPts = scatter(40, (I, x, z) => inForest(I) && trees.every((t) => Math.hypot(x - t.x, z - t.z) > 3)).slice(0, 12);
+  const forestPts = scatter(40, (I, x, z) => inForest(I) && trees.every((t) => Math.hypot(x - t.x, z - t.z) > 3) && clear(x, z, 1.2)).slice(0, 12);
   const items = {
     mapPieces: [at(W(shipM, -2.5, 0, 5), 1.7, deckY), at(v3((dockX0 + dockXC) / 2 + 4, 0, DZ), 1.7, 64), at(v3(C.x + 10, 0, C.z - 26)), at(beachAt(Math.PI, 0.92))],
     xMark: at(XSPOT, 1.6),
@@ -1040,7 +1304,84 @@ export function buildPirateIsland(scene) {
       return at(v3(x - ez / el * (d + 1) * side, 0, z + ex / el * (d + 1) * side), 1.6);
     }),
   };
-  const spots = { landing: v3(dockX1 - 3, DOCK_Y + 1.8, DZ), npc, items, wild };
+  // ---- life: where the islanders are and what they do. p = feet on the floor, yaw 0 faces +z (atan2(dx, dz));
+  // seat = how high they sit above p (stools, logs, a hammock); path = where walkers and carriers go back and forth.
+  const life = [];
+  const onF = (x, z, hint = 300) => v3(x, floor(x, z, hint), z);
+  const lw = (M, lx, lz, up = 1) => { const q = W(M, lx, 0, lz); return onF(q.x, q.z, q.y + up); };
+  const face = (p, q) => Math.atan2(q.x - p.x, q.z - p.z);
+  const add = (activity, type, p, yaw, extra) => life.push({ p, yaw, activity, type, ...extra });
+  const walk = (activity, type, pts, extra) => { const path = pts.map((q) => (q.isVector3 ? q : onF(q[0], q[1], q[2]))); add(activity, type, path[0].clone(), face(path[0], path[1]), { path, ...extra }); };
+  {
+    const PI = Math.PI;
+    // the market: a keeper behind every stall, customers in front, a juggler in the square
+    const keeper = { fruit: 'pirateCook', fish: 'pirateCaptain', trinkets: 'monkeySailor', hats: 'pirateKid' };
+    for (const s of VIL.stalls) add('shop', keeper[s.kind], lw(s.M, 0, -1.6), s.yaw, { stall: s.kind });
+    const [sFruit, , , sHats] = VIL.stalls;
+    add('chat', 'pirateKid', lw(sFruit.M, 0.5, 2.0), sFruit.yaw + PI);
+    add('chat', 'elf', lw(sHats.M, -0.4, 2.0), sHats.yaw + PI);
+    add('juggle', 'monkeySailor', onF(MARKET.x + 2, MARKET.z + 0.3), -PI / 2);
+    add('dance', 'pirateKid', onF(MARKET.x - 1.4, MARKET.z + 0.5), PI / 2);
+    // the juice bar: the keeper behind the counter, three customers on the stools
+    const bar = VIL.bar;
+    add('shop', 'pirateCook', lw(bar.M, 0, -1.3), bar.yaw, { stall: 'juice' });
+    [['pirateKid', -1.7], ['pirateCaptain', 0], ['gnome', 1.7]].forEach(([type, sx]) => add('sit', type, lw(bar.M, sx, 1.45), bar.yaw + PI, { seat: 0.8 }));
+    // the shacks: porch life, a painter, a garden, a swing, the washing line, neighbours chatting
+    const { A, B, C: Cs, D, E, F } = VIL;
+    add('sweep', 'pirateCook', lw(A.M, -1.2, 2.9), A.yaw + PI / 2);
+    add('wave', 'pirateKid', lw(B.M, 0.9, 3.4), B.yaw);
+    add('read', 'pirateCaptain', lw(Cs.M, 1.4, 2.7), Cs.yaw);
+    add('paint', 'pirateKid', lw(D.M, 3.4, -0.4, -0.2), D.yaw - PI / 2);
+    add('sit', 'elf', lw(E.M, 1.0, 3.7), E.yaw, { seat: 0 });
+    add('sit', 'pirateCaptain', lw(F.M, -1.0, 3.7), F.yaw, { seat: 0 });
+    add('swing', 'pirateKid', lw(VIL.swing.M, 0, 0), VIL.swing.yaw, { seat: 0.72 });
+    add('garden', 'gnome', lw(VIL.garden.M, 0.3, 1.45), VIL.garden.yaw + PI);
+    { const { a, b } = VIL.wash; walk('carry', 'pirateCook', [[a.x + 1.2, a.z + 0.6], [a.x + 1.2, (a.z + b.z) / 2], [b.x + 1.2, b.z - 0.6]], { item: 'laundry' }); }
+    { const p = onF(C.x + 125.5, C.z - 12.5), q = onF(C.x + 127, C.z - 11.2); add('chat', 'pirateCook', p, face(p, q)); add('chat', 'pirateKid', q, face(q, p)); }
+    // the shipyard
+    const Y = VIL.yard;
+    add('build', 'pirateCaptain', lw(Y.M, 2.9, 0.8), Y.yaw - PI / 2);
+    add('build', 'monkeySailor', lw(Y.M, -2.6, 1.6), Y.yaw + PI / 2);
+    add('paint', 'pirateKid', lw(Y.M, 0.6, -4.7), Y.yaw);
+    walk('carry', 'pirateKid', [W(Y.M, -4.6, 0, -3.0), W(Y.M, -4.6, 0, 0.6), W(Y.M, -2.6, 0, -0.3)].map((q) => onF(q.x, q.z)), { item: 'plank' });
+    // the dock: fishers sitting on the edge, legs over the water
+    add('fish', 'pirateKid', onF(dockX0 + 16.8, DZ + 2.3, DOCK_Y + 1), 0, { seat: 0 });
+    add('fish', 'monkeySailor', onF(dockX0 + 30, DZ + 2.3, DOCK_Y + 1), 0, { seat: 0 });
+    add('fish', 'pirateCaptain', onF(dockX0 + 26, DZ - 2.3, DOCK_Y + 1), PI, { seat: 0 });
+    // the beach north of the dock: a ball game, a sandcastle, a nap in the sun, a stroll
+    { const p = onF(C.x + 130, C.z - 27), q = onF(C.x + 135, C.z - 23.5); add('play', 'pirateKid', p, face(p, q), { partner: life.length + 1 }); add('play', 'pirateKid', q, face(q, p), { partner: life.length - 1 }); }
+    { const c = VIL.castle, p = onF(c.x - 2.1, c.z - 1.2), q = onF(c.x + 1.9, c.z + 1.4); add('dig', 'pirateKid', p, face(p, c)); add('dig', 'mole', q, face(q, c)); }
+    add('sleep', 'elf', lw(VIL.towel.M, 0, 0), VIL.towel.yaw);
+    walk('walk', 'pirateCaptain', [[C.x + 142, C.z - 32], [C.x + 140, C.z - 24], [C.x + 137, C.z - 19]]);
+    // walkers: through the village, and from the dock up to the camp
+    walk('walk', 'pirateKid', [[C.x + 135.5, C.z - 10], [C.x + 139, C.z - 1], [C.x + 141.5, C.z + 8], [C.x + 141.5, C.z + 17], [C.x + 138, C.z + 22.5]]);
+    walk('walk', 'pirateCook', [[C.x + 123.5, C.z - 9], [C.x + 124, C.z - 1]], { item: 'basket' });
+    // the ship: scrubbing the deck and the hull, a lookout in the crow's nest, a sea shanty on the quarterdeck
+    const shipF = shipYaw + PI / 2; // facing the sea side
+    add('scrub', 'pirateKid', lw(shipM, 3.0, 2.0), shipYaw - PI / 2);
+    add('scrub', 'monkeySailor', lw(shipM, -6.3, 5.5), shipF);
+    { const q = W(shipM, 0.6, 15.5, 0.2); add('lookout', 'monkeySailor', onF(q.x, q.z, q.y + 1), shipF); }
+    { const m = lw(shipM, -2.6, -11.2, 5), d = lw(shipM, -0.6, -9.6, 5); add('music', 'pirateCaptain', m, face(m, d)); add('dance', 'pirateKid', d, face(d, m)); }
+    // the camp: a cook at the pot, friends on the logs, someone asleep in the hammock
+    { const p = onF(CAMP.x + 0.4, CAMP.z - 2.7); add('cook', 'pirateCook', p, face(p, CAMP)); }
+    [[0.4, 'sit', 'pirateKid'], [3.54, 'sit', 'monkeySailor'], [5.11, 'music', 'pirateKid']].forEach(([a, act, type]) => {
+      const p = onF(CAMP.x + Math.cos(a) * 3.6, CAMP.z + Math.sin(a) * 3.6); add(act, type, p, face(p, CAMP), { seat: 0.85 });
+    });
+    add('sleep', 'pirateCaptain', onF(VIL.hammock.p.x, VIL.hammock.p.z), VIL.hammock.yaw, { seat: 1.0 });
+    // the skull: a lookout with the spyglass on the top, another on the cliff ledge
+    add('lookout', 'pirateCaptain', lw(VIL.topM, -2.4, -2.2, 2), SK.a + Math.atan2(-2.4, -2.2));
+    { const l = LEDGE.cliff, q = skullWorld(l.u + l.du * 1.6 - l.dw * 2.0, 0, l.w + l.dw * 1.6 + l.du * 2.0); add('lookout', 'pirateKid', onF(q.x, q.z, l.top + 1), Math.atan2(SKC * l.du + SKS * l.dw, -SKS * l.du + SKC * l.dw)); }
+    // the grotto (far from Batty and Boo): a map reader at the table, a gem juggler, a monkey fishing in the glowing pool
+    { const p = onF(G(-17.4, -6.3).x, G(-17.4, -6.3).z, 86); add('read', 'pirateCaptain', p, face(p, VIL.mapTable), { item: 'map' }); }
+    { const p = onF(G(5.9, 2.5).x, G(5.9, 2.5).z, 86); add('juggle', 'monkeySailor', p, face(p, G(0, 20)), { item: 'gems' }); }
+    { const p = onF(G(-5.4, -2.6).x, G(-5.4, -2.6).z, 86); add('fish', 'monkeySailor', p, face(p, G(...POOL)), { seat: 0 }); }
+    // wanderers: across the rope bridge, along the jungle path, a mole digging near the X
+    walk('walk', 'pirateKid', [bN.clone().addScaledVector(bAx, -4), bN.clone().addScaledVector(bAx, 1), bMid.clone(), bS.clone().addScaledVector(bAx, -1), bS.clone().addScaledVector(bAx, 4)].map((q) => onF(q.x, q.z, 90)));
+    walk('walk', 'gnome', [[C.x - 28, C.z - 10], [C.x - 38, C.z - 16], [C.x - 47, C.z - 20.5]]);
+    { const p = onF(XSPOT.x + 5, XSPOT.z - 4); add('dig', 'mole', p, face(p, XSPOT)); }
+  }
+
+  const spots = { landing: v3(dockX1 - 3, DOCK_Y + 1.8, DZ), npc, items, wild, life };
 
   for (const c of cols) colliders.push(c);
 

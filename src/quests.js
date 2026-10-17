@@ -5,6 +5,7 @@ import { MerModel, PALETTES } from './mermaid.js';
 import { seahorseModel, turtleModel, octopusModel, dolphinModel, whaleModel, crabModel, pufferModel, jellyModel, otterModel } from './creatures.js';
 import { costumeCrab, lobsterModel, hermitCrabModel, snailModel, sealModel, oysterModel, anglerfishModel } from './seafolk.js';
 import { CHAINS, CHAIN_BY_GIVER, chainItemModel, beaconModel } from './chains.js';
+import { Townie } from './townsfolk.js';
 import { LAND_KINDS, LAND_SCALE, Flyer, Hopper, Walker, Percher, Floater, parrotModel, leafkinModel } from './landfolk.js';
 import { tunnelInfo, TUNNEL } from './util.js';
 import { paintMat } from './geom.js';
@@ -367,7 +368,7 @@ export class Story {
     this.chainBeacons = {}; // "chain:step" -> beacon
     for (const [id, c] of Object.entries(CHAINS)) {
       if (!this.chainOn(id)) continue;
-      const parent = this.ctx.islands?.[c.area]?.group || this.scene;
+      const isl = this.ctx.islands?.[c.area], parent = isl ? this.worldOf(isl) : this.scene;
       c.steps.forEach((st, k) => {
         const key = `${id}:${k}`;
         if (st.type === 'collect') {
@@ -401,20 +402,47 @@ export class Story {
     if (q.bridge === 'done' || (this.state.chainStep?.bridge || 0) >= 1) this.ctx.islands?.paradise?.finishBridge?.();
   }
 
+  // A group inside the island that cancels its offset, so world positions can be used as they are
+  // (and everything still hides with the island).
+  worldOf(island) {
+    if (!island.world) {
+      island.world = new THREE.Group();
+      island.world.position.copy(island.group.position).negate();
+      island.group.add(island.world);
+    }
+    return island.world;
+  }
+
   // The island friends (quest givers and chatters) and the wild animals around them.
   buildIslanders() {
     const I = this.ctx.islands;
-    this.landFolk = [];
+    this.landFolk = []; this.townies = [];
     if (!I) return;
     for (const [id, [isl, spot, kind, make, how]] of Object.entries(ISLANDERS)) {
       const island = I[isl], at = island?.spots.npc[spot];
       if (!at) continue;
       const model = make ? make() : LAND_KINDS[kind](), sc = LAND_SCALE[kind] * 1.5;
-      const folk = how === 'float' ? new Floater(island.group, kind, model, sc, { c: at, r: 0.5, speed: 0.6 })
-        : new Percher(island.group, kind, model, sc, { at: how === 'hang' ? at.clone() : at.clone().setY(island.floor(at.x, at.z, at.y + 1)), hang: how === 'hang' });
+      const folk = how === 'float' ? new Floater(this.worldOf(island), kind, model, sc, { c: at, r: 0.5, speed: 0.6 })
+        : new Percher(this.worldOf(island), kind, model, sc, { at: how === 'hang' ? at.clone() : at.clone().setY(island.floor(at.x, at.z, at.y + 1)), hang: how === 'hang' });
       const n = this.addNPC(id, { root: folk.root, update: (dt) => folk.update(dt) }, folk.root.position.clone());
-      island.group.add(folk.root);
+      this.worldOf(island).add(folk.root);
       n.friendKind = kind; n.folk = folk;
+    }
+    // the townsfolk: shopkeepers, builders, fishers, dancers… each busy with something
+    this.townies = [];
+    for (const island of Object.values(I)) {
+      (island.spots.life || []).forEach((L, i) => {
+        const fwd = new THREE.Vector3(Math.sin(L.yaw), 0, Math.cos(L.yaw));
+        const ahead = L.p.clone().addScaledVector(fwd, 2.5);
+        const tw = new Townie(this.worldOf(island), L.type, {
+          ...L, seed: i * 7.31 + island.center.x,
+          floor: (x, z, y) => island.floor(x, z, y),
+          props: L.activity !== 'shop' && L.seat === undefined,
+          waterY: L.activity === 'fish' ? Math.max(WORLD.surfaceY + 0.05, island.floor(ahead.x, ahead.z, L.p.y)) : undefined,
+        });
+        tw.island = island;
+        this.townies.push(tw);
+      });
     }
     for (const [isl, places] of Object.entries(WILD)) {
       const island = I[isl];
@@ -427,10 +455,10 @@ export class Story {
           const sc = LAND_SCALE[kind];
           const floor = (x, z) => island.floor(x, z, p.y + 1);
           const ground = p.clone().setY(floor(p.x, p.z));
-          const folk = FLYERS.includes(kind) ? new Flyer(island.group, kind, model, sc, { c: p, r: 6 + (i % 3) * 3, h: p.y + 6 + (i % 4) * 2, dir: i % 2 ? 1 : -1, friendRadius: 9 })
-            : FLOATERS.includes(kind) ? new Floater(island.group, kind, model, sc, { c: p, r: 2, h: p.y + 0.5 })
-              : HOPPERS.includes(kind) ? new Hopper(island.group, kind, model, sc, { home: ground, range: place === 'city' ? 1.2 : 3, floor })
-                : new Walker(island.group, kind, model, sc, { home: ground, range: 3, floor });
+          const folk = FLYERS.includes(kind) ? new Flyer(this.worldOf(island), kind, model, sc, { c: p, r: 6 + (i % 3) * 3, h: p.y + 6 + (i % 4) * 2, dir: i % 2 ? 1 : -1, friendRadius: 9 })
+            : FLOATERS.includes(kind) ? new Floater(this.worldOf(island), kind, model, sc, { c: p, r: 2, h: p.y + 0.5 })
+              : HOPPERS.includes(kind) ? new Hopper(this.worldOf(island), kind, model, sc, { home: ground, range: place === 'city' ? 1.2 : 3, floor })
+                : new Walker(this.worldOf(island), kind, model, sc, { home: ground, range: 3, floor });
           folk.island = island;
           this.landFolk.push(folk);
           this.ctx.creatures.all.push(folk);
@@ -1001,6 +1029,7 @@ export class Story {
 
     // island animals move only while the islands are shown and near
     for (const f of this.landFolk) if (f.island.group.visible && f.pos.distanceToSquared(P) < 200 * 200) f.update(dt);
+    for (const tw of this.townies) if (tw.island.group.visible && tw.pos.distanceToSquared(P) < 160 * 160) tw.update(dt, time, P);
 
     // friends: creatures you swim close to
     for (const c of this.ctx.creatures.all) {
