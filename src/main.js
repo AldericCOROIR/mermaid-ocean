@@ -193,10 +193,12 @@ const SHOTS = {
   city2: { p: [-10, 11, -72], yaw: Math.PI - 0.35, pitch: 0.1, dist: 9 },
   reef2: { p: [WORLD.reefPos.x + 4, groundHeight(WORLD.reefPos.x + 4, WORLD.reefPos.z + 16) + 5, WORLD.reefPos.z + 16], yaw: Math.PI * 1.0, pitch: -0.15, dist: 7 },
   citytop: { p: [12, 26, -112], yaw: Math.PI + 0.2, pitch: -0.3, dist: 9 },
+  walk1: { p: [-14, 6, -62], yaw: Math.PI * 0.72, pitch: -0.05, dist: 6 },
+  walk2: { p: [18, 7, -95], yaw: Math.PI * 1.35, pitch: -0.05, dist: 6 },
   overview: { p: [0, 8, -75], yaw: Math.PI, pitch: -0.25, dist: 8 },
   start: { p: [WORLD.start.x, WORLD.start.y, WORLD.start.z], yaw: Math.PI, pitch: -0.12, dist: 7 },
 };
-let shotFrames = 0, shotReadyFrames = 0;
+let shotFrames = 0, shotReadyFrames = 0, paintSweep = 0;
 // clean=1 hides everything that moves: the 'plain blocks' plate that gets painted over
 const CLEAN = params.get('clean') === '1';
 if (SHOT) {
@@ -263,6 +265,7 @@ function frame() {
   hemi.intensity = 2.15 - depthY * 0.55;
 
   projection.updateActive(camera.position);
+  if (performance.now() - paintSweep > 1000) { paintSweep = performance.now(); brush.sweep(scene, [world.group, city.group]); } // paint anything new
   post.render(scene, camera, player.focusDist, depthY, elapsed);
 
   // adaptive quality: step down if the phone struggles
@@ -290,4 +293,4 @@ projection.bakeDepth([world.group, city.group]);
 scene.children.forEach((o) => { if (o !== world.group && o !== city.group) brush.applyTo(o, true); });
 document.getElementById('loading').classList.add('hidden');
 requestAnimationFrame(frame);
-window.__game = { player, story, camera, settings, city, projection };
+window.__game = { player, story, camera, settings, city, projection, scene, Brushwork };

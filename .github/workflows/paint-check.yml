@@ -1,0 +1,17 @@
+name: paint-check
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  paint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save playwright@1.56.1 && npx playwright install --with-deps chromium
+      - run: python3 -m http.server 8123 &
+      - run: node tools/check_paint.mjs

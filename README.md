@@ -33,10 +33,12 @@ Controls: left thumb = floating joystick, drag anywhere else to look around, ⬆
 
 ## Painted look
 
+See [PAINTING.md](PAINTING.md) for the asset workflow and the `tools/check_paint.mjs` coverage check (also run on every push).
+
 Two layers make the 3D world look hand-painted:
 
 1. **Painted surfaces** (`src/brushwork.js`): seamless painted tiles in `assets/swatch/` (sand, rock, coral, kelp, shell, brush strokes, generated with Codex/GPT Image from the concept frames) are laid on every object with triplanar mapping and tinted by the object's colour. Moving creatures carry their strokes with them.
-2. **Projected paintings** (`src/projection.js`): following the "paint over the blocks, project it back" process: clean camera plates of the plain 3D world were painted with the [district references and prompts](painted/districts/prompts.md), then projected back from those exact cameras (`src/paintviews.js`). Four v4 paintings cover the aerial, lower market, fountain court and palace. Three v2 paintings still cover the throne hall, library and music gallery. Exterior plates remain visible from farther away; only the nearest exterior camera contributes at a time. The repeatable no-blur comparison is `?shot=overview&compare=1`.
+2. **Projected paintings** (`src/projection.js`): following the "paint over the blocks, project it back" process: clean camera plates of the plain 3D world were painted with the [district references and prompts](painted/districts/prompts.md), then projected back from those exact cameras (`src/paintviews.js`). Four v4 paintings cover the aerial, lower market, fountain court and palace. Three v2 paintings still cover the throne hall, library and music gallery. They show only near the camera each one was painted from; everywhere else the painted surface tiles carry the look. The repeatable no-blur comparison is `?shot=overview&compare=1`.
 
 Rebuild helpers: `tools/make_paintviews.py` (plates/cams.json + paintings → `src/paintviews.js` and `assets/paint/`), `tools/make_swatches.py` (paintings → seamless tiles and `src/swatches.js`).
 
