@@ -30,25 +30,32 @@ export class UI {
     });
     $('btnMenu').addEventListener('click', () => { this.renderMenu(); $('menu').classList.remove('hidden'); });
     $('menuClose').addEventListener('click', () => $('menu').classList.add('hidden'));
-    // tap a quest to follow its sparkle trail and hear it again
-    $('quest').addEventListener('click', () => { this._sideOpen = false; this.onTrack?.('main'); say($('questText').textContent); });
-    // the side quest pill shows one quest; tap it to open the list and pick another
+    // one quest panel: it shows the quest the sparkles follow; tap it to hear it again
+    // and open the list of every quest in progress, tap one to follow it instead
+    this._mainText = '';
+    this._side = { list: [], tracked: 'main' };
+    $('quest').addEventListener('click', () => {
+      say($('questText').textContent);
+      this._sideOpen = !this._sideOpen && this._side.list.length > 0;
+      this.renderQuests();
+    });
     $('sideQuest').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-id]');
       if (!b) return;
       e.stopPropagation();
-      const id = b.dataset.id;
-      if (b.classList.contains('shown')) this._sideOpen = !this._sideOpen && (this._side?.list.length || 0) > 1;
-      else this._sideOpen = false;
-      this.onTrack?.(id);
-      say(this._sideTexts?.[id]);
+      this._sideOpen = false;
+      this.onTrack?.(b.dataset.id);
+      say(b.querySelector('.txt').textContent);
     });
+    // compass: the sparkles lead to the nearest friend with a quest you have not done yet
+    $('btnGiver').addEventListener('click', () => { this._sideOpen = false; this.onFindGiver?.(); });
   }
 
   setQuest(text, pulse) {
-    $('questText').textContent = text;
+    this._mainText = text;
+    this.renderQuests();
     if (pulse) say(text, 'narrator', false); // a new goal is read out after the current line
-    if (pulse) { const q = $('quest'); q.classList.remove('pulse'); void q.offsetWidth; q.classList.add('pulse'); }
+    if (pulse && this._side.tracked === 'main') { const q = $('quest'); q.classList.remove('pulse'); void q.offsetWidth; q.classList.add('pulse'); }
   }
   setCounts(pearls, friends, stars = 0) { $('pearlCount').textContent = pearls; $('friendCount').textContent = friends; $('starCount').textContent = stars; }
 
@@ -84,21 +91,28 @@ export class UI {
 
   // One tappable pill per side quest; the tracked quest (main or side) is highlighted
   // and its sparkle trail is the one shown in the world.
-  setSideQuests(list, tracked, shown) {
-    this._side = { list, tracked, shown };
-    const box = $('sideQuest');
+  setSideQuests(list, tracked) {
+    this._side = { list, tracked };
+    if (!list.length) this._sideOpen = false;
+    this.renderQuests();
+  }
+  renderQuests() {
+    const { list, tracked } = this._side;
     const hex = (c) => '#' + c.toString(16).padStart(6, '0');
-    const cur = list.find((q) => q.id === shown) || list[0];
-    if (list.length < 2) this._sideOpen = false;
-    const rows = cur ? [cur, ...(this._sideOpen ? list.filter((q) => q !== cur) : [])] : [];
-    box.innerHTML = rows.map((q, i) => `<button class="pill side${i ? ' choice' : ' shown'}${q.id === tracked ? ' tracked' : ''}" data-id="${q.id}">`
-      + `<span class="dot" style="background:${hex(q.color)}"></span><span class="ico">${q.icon}</span><span class="txt"></span>`
-      + (i === 0 && list.length > 1 ? `<span class="caret">${this._sideOpen ? '▴' : '▾'} ${list.length}</span>` : '') + '</button>').join('');
+    const all = [{ id: 'main', text: this._mainText, icon: '⭐' }, ...list];
+    const cur = all.find((q) => q.id === tracked) || all[0];
+    $('questIcon').textContent = cur.icon;
+    $('questText').textContent = cur.text;
+    $('questDot').classList.toggle('hidden', !cur.color);
+    if (cur.color) $('questDot').style.background = hex(cur.color);
+    $('questCaret').classList.toggle('hidden', !list.length);
+    $('questCaret').textContent = `${this._sideOpen ? '▴' : '▾'} ${all.length}`;
+    const rows = this._sideOpen ? all.filter((q) => q !== cur) : [];
+    const box = $('sideQuest');
+    box.innerHTML = rows.map((q) => `<button class="pill side" data-id="${q.id}">`
+      + (q.color ? `<span class="dot" style="background:${hex(q.color)}"></span>` : '') + `<span class="ico">${q.icon}</span><span class="txt"></span></button>`).join('');
     box.querySelectorAll('button').forEach((b, i) => { b.querySelector('.txt').textContent = rows[i].text; });
-    box.classList.toggle('open', !!this._sideOpen);
-    box.classList.toggle('hidden', !list.length);
-    $('quest').classList.toggle('tracked', tracked === 'main' && list.length > 0);
-    this._sideTexts = Object.fromEntries(list.map((q) => [q.id, q.text]));
+    box.classList.toggle('hidden', !rows.length);
   }
 
   openWardrobe() {

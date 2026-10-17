@@ -6,7 +6,7 @@ export const CHAIN_STR = {
       bow: 'Pink Bow', starClip: 'Star Clip', shellCrown: 'Shell Crown', flowerCrown: 'Flower Crown' },
     npc: { granny: 'Granny Wavy', inky: 'Inky', sandy: 'Sandy', puffy: 'Puffy', glim: 'Glim', luna: 'Luna', bubbles: 'Bubbles', ottie: 'Ottie' },
     side: {
-      chainReturn: 'Go back to {name}',
+      chainReturn: 'Go back to {name}', goMeet: 'Go meet {name} 🧭', allMet: 'You met every friend with a quest! 🎉',
       bakery1: 'Find sugar pearls at the market 🍬', bakery2: 'Bring the cake to the Queen 🎂', bakery3: 'Find party lanterns by the bridges 🏮',
       library1: 'Find the lost story books 📚', library2: 'Bring the book to the Garden Fairy 🧚', library3: 'Swim up high over the palace ⭐',
       granny1: 'Find balls of yarn in the kelp 🧶', granny2: 'Bring the scarf to Grandpa Shelly 🐢', granny3: 'Pick glowing kelp flowers 🌼',
@@ -119,7 +119,7 @@ export const CHAIN_STR = {
       bow: 'Nœud rose', starClip: 'Barrette étoile', shellCrown: 'Couronne de coquillages', flowerCrown: 'Couronne de fleurs' },
     npc: { granny: 'Mamie Vaguelette', inky: 'Inky', sandy: 'Sandy', puffy: 'Pouffy', glim: 'Glim', luna: 'Luna', bubbles: 'Bulles', ottie: 'Loutrine' },
     side: {
-      chainReturn: 'Retourne voir {name}',
+      chainReturn: 'Retourne voir {name}', goMeet: 'Va voir {name} 🧭', allMet: 'Tu as rencontré tous les amis qui ont une quête ! 🎉',
       bakery1: 'Trouve des perles de sucre au marché 🍬', bakery2: 'Apporte le gâteau à la Reine 🎂', bakery3: 'Trouve les lanternes près des ponts 🏮',
       library1: 'Trouve les livres perdus 📚', library2: 'Apporte le livre à la Fée du jardin 🧚', library3: 'Nage tout en haut du palais ⭐',
       granny1: 'Trouve des pelotes de laine dans les algues 🧶', granny2: 'Apporte l\'écharpe à Papi Shelly 🐢', granny3: 'Cueille des fleurs d\'algue lumineuses 🌼',

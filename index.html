@@ -23,7 +23,11 @@
     <div class="pill" id="pearls"><span class="ico">⚪</span><b id="pearlCount">0</b></div>
     <div class="pill" id="friends"><span class="ico">💖</span><b id="friendCount">0</b></div>
     <div class="pill" id="stars"><span class="ico">⭐</span><b id="starCount">0</b></div>
-    <div id="quest" class="pill quest"><span class="ico" id="questIcon">⭐</span><span id="questText"></span></div>
+    <div id="questWrap">
+      <div id="quest" class="pill quest"><span class="dot hidden" id="questDot"></span><span class="ico" id="questIcon">⭐</span><span id="questText"></span><span class="caret hidden" id="questCaret"></span></div>
+      <div id="sideQuest" class="hidden"></div>
+    </div>
+    <button class="round small" id="btnGiver" aria-label="find a friend with a quest">🧭</button>
     <button class="round small" id="btnAlbum" aria-label="album">📖</button>
     <button class="round small" id="btnWardrobe" aria-label="wardrobe">👗</button>
     <button class="round small" id="btnMenu" aria-label="menu">⚙️</button>
@@ -48,7 +52,6 @@
   </div>
 
   <div id="toast" class="hidden"></div>
-  <div id="sideQuest" class="hidden"></div>
   <div id="friendPop" class="hidden"><div class="emoji" id="friendEmoji"></div><div id="friendName"></div></div>
 </div>
 

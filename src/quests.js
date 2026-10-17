@@ -30,7 +30,7 @@ const SIDE_IDS = ['tailor', 'keeper', 'bard', ...Object.keys(BABIES), 'whelk'];
 const CHATTERS = { madamePearl: 2 };
 const TRAIL_COLORS = { main: 0xfff3a0, tailor: 0xff8fd0, keeper: 0x7ff0ff, bard: 0xc49bff,
   tico: 0x9dff8a, pip: 0xffa860, splash: 0x5fa8ff, momo: 0xff7a8a,
-  pinch: 0xffd23f, rosa: 0xff6a4a, shellby: 0xff9fe8, whelk: 0x8affd8,
+  pinch: 0xffd23f, rosa: 0xff6a4a, shellby: 0xff9fe8, whelk: 0x8affd8, giver: 0x5fb4ff,
   ...Object.fromEntries(Object.entries(CHAINS).map(([id, c]) => [id, c.color])) };
 const FACES = { marina: '🧜‍♀️', queen: '👸', guard: '🔱', coral: '🧜🏾‍♀️', pearl: '🧜‍♀️', mama: '💛', baby: '🍼', shelly: '🐢', whale: '🐋', tailor: '🧵', baker: '🧁', keeper: '⛲', bard: '🎶', librarian: '📚', fairy: '🧚', tico: '🐢', pip: '🐙', splash: '🐬', momo: '🐳', citizen: '🧜‍♀️', activity: '🧜🏼‍♀️', ambientSeahorse: '🌊',
   pinch: '🦀', rosa: '🦞', shellby: '🐚', whelk: '🐌', clawsworth: '🛡️', selkie: '🦭', madamePearl: '🔮',
@@ -515,10 +515,25 @@ export class Story {
   sideList() {
     const q = this.state.sideQuests || {};
     return [...SIDE_IDS, ...CHAIN_IDS.filter((id) => this.chainOn(id))].filter((id) => q[id] === 'active' || q[id] === 'ready')
-      .map((id) => ({ id, text: this.sideText(id), color: TRAIL_COLORS[id], icon: FACES[CHAINS[id]?.giver || id] }));
+      .map((id) => ({ id, text: this.sideText(id), color: TRAIL_COLORS[id], icon: FACES[CHAINS[id]?.giver || id] }))
+      .concat(this.giverTarget ? [{ id: 'giver', text: this.sideText('giver'), color: TRAIL_COLORS.giver, icon: FACES[this.giverTarget.n.id] || '🧭' }] : []);
+  }
+  // The compass button: lead the way to the nearest friend whose quest has not started yet
+  // (tap again for the next nearest one).
+  findGiver() {
+    const q = this.state.sideQuests || {}, P = this.ctx.player.position;
+    const todo = (this.giverStars || []).filter((g) => !q[g.qid] && (!CHAINS[g.qid] || this.chainOn(g.qid)))
+      .sort((a, b) => a.n.root.position.distanceTo(P) - b.n.root.position.distanceTo(P));
+    if (!todo.length) { this.giverTarget = null; this.refreshSideQuest(); this.ctx.ui.toast(t('side.allMet')); return; }
+    const next = this.tracked === 'giver' && this.giverTarget ? (todo.indexOf(this.giverTarget) + 1) % todo.length : 0;
+    this.giverTarget = todo[next];
+    this.tracked = 'giver';
+    this.refreshSideQuest();
+    this.ctx.ui.toast(this.sideText('giver'));
   }
   sideText(id) {
     const q = this.state.sideQuests || {};
+    if (id === 'giver') return t('side.goMeet', { name: t('npc.' + this.giverTarget.n.id) });
     if (CHAINS[id]) {
       if (q[id] === 'ready') return t('side.chainReturn', { name: t('npc.' + CHAINS[id].giver) });
       const k = this.state.chainStep[id] || 0, st = CHAINS[id].steps[k];
@@ -529,6 +544,7 @@ export class Story {
   }
 
   refreshSideQuest() {
+    if (this.giverTarget && this.state.sideQuests?.[this.giverTarget.qid]) this.giverTarget = null; // met them: their quest is on
     const list = this.sideList();
     if (this.tracked !== 'main' && !list.some((x) => x.id === this.tracked)) this.tracked = 'main';
     if (!list.some((x) => x.id === this.sideShown)) this.sideShown = list[0]?.id || null;
@@ -551,6 +567,7 @@ export class Story {
       const left = this.babyItems[id].filter((x) => !x.got).sort((a, b) => a.g.position.distanceTo(P) - b.g.position.distanceTo(P));
       return left[0]?.g.position || null;
     }
+    if (id === 'giver') return this.giverTarget?.n.root.position || null;
     if (CHAINS[id]) {
       const npcPos = (nid) => this.npcs.find((n) => n.id === nid)?.root.position || null;
       if (q[id] === 'ready') return npcPos(CHAINS[id].giver);

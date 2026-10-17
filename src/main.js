@@ -88,6 +88,7 @@ ui.onFollow = (kind) => {
 };
 ui.onBubbleOk = () => story.advanceDialog();
 ui.onTrack = (id) => story.track(id);
+ui.onFindGiver = () => story.findGiver();
 ui.getWardrobe = () => ({ unlocked: save.state.unlocked, outfit: save.state.outfit });
 ui.onWardrobeSelect = (category, item) => {
   if (!['tail', 'top', 'head', 'hair', 'hairColor'].includes(category) || !save.state.unlocked.includes(item)) return;

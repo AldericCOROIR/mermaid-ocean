@@ -18,12 +18,16 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b3a6b; fon
 #hud > * { pointer-events: auto; }
 #hud.wardrobeMode { visibility: hidden; }
 
-#topbar { position: absolute; top: calc(10px + var(--safe-t)); left: calc(12px + var(--safe-l)); right: calc(12px + var(--safe-r)); display: flex; gap: 8px; align-items: center; pointer-events: none; }
+#topbar { position: absolute; z-index: 4; top: calc(10px + var(--safe-t)); left: calc(12px + var(--safe-l)); right: calc(12px + var(--safe-r)); display: flex; gap: 8px; align-items: center; pointer-events: none; }
 #topbar > * { pointer-events: auto; }
 .pill { background: var(--paper); border-radius: 999px; padding: 6px 14px; display: flex; align-items: center; gap: 6px; font-size: 20px; box-shadow: 0 4px 0 rgba(20, 40, 90, .25); border: 3px solid #fff; }
 .pill b { font-size: 22px; min-width: 1ch; }
 .pill .ico { font-size: 22px; }
-.quest { flex: 1; min-width: 0; font-size: 17px; line-height: 1.15; }
+#questWrap { flex: 1; min-width: 0; position: relative; }
+.quest { width: 100%; box-sizing: border-box; min-width: 0; font-size: 17px; line-height: 1.15; cursor: pointer; }
+.quest .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; box-shadow: 0 0 6px currentColor; }
+.quest .caret { margin-left: auto; padding-left: 6px; font-size: 14px; opacity: .75; white-space: nowrap; }
+.quest .hidden { display: none; }
 .quest #questText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .quest.pulse { animation: pulse .8s ease 3; }
 @keyframes pulse { 50% { transform: scale(1.06); background: #fff3b0; } }
@@ -61,8 +65,8 @@ button { font-family: inherit; color: var(--ink); cursor: pointer; }
 #friendPop { position: absolute; top: 18%; left: 50%; transform: translateX(-50%); background: var(--paper); border: 4px solid #fff; border-radius: 30px; padding: 10px 26px; text-align: center; animation: toast 2.6s ease forwards; pointer-events: none; }
 #friendPop .emoji { font-size: 58px; }
 #friendName { font-size: 24px; font-weight: bold; color: #c2408d; }
-#sideQuest { position: absolute; top: calc(68px + var(--safe-t)); left: calc(12px + var(--safe-l)); max-width: min(440px, 60vw); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: auto; }
-#sideQuest .side { font: inherit; font-size: 15px; line-height: 1.15; background: rgba(255, 246, 220, .94); color: inherit; text-align: left; cursor: pointer; opacity: .8; }
+#sideQuest { position: absolute; top: calc(100% + 6px); left: 12px; right: 0; max-width: 440px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: auto; }
+#sideQuest .side { font: inherit; font-size: 15px; line-height: 1.15; background: rgba(255, 255, 255, .96); color: inherit; text-align: left; cursor: pointer; }
 #sideQuest .side .ico { font-size: 18px; }
 #sideQuest .caret { margin-left: 6px; font-size: 13px; opacity: .75; white-space: nowrap; }
 #sideQuest.open .choice { margin-left: 18px; font-size: 14px; background: rgba(255, 255, 255, .96); }
