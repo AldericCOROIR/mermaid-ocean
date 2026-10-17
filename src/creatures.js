@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { WORLD, groundHeight, rand, rr, pick, glowTexture } from './util.js';
 import { merge, mat, segment, paintMat, inject, shared } from './geom.js';
+import { lobsterModel, snailModel, hermitCrabModel, sealModel, oysterModel, anglerfishModel, seaDragonModel } from './seafolk.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
@@ -859,6 +860,13 @@ export function thumbModel(kind) {
     case 'seaBunny': return seaBunnyModel();
     case 'starfish': return starfishModel();
     case 'otter': return otterModel();
+    case 'seal': return sealModel();
+    case 'lobster': return lobsterModel();
+    case 'hermitCrab': return hermitCrabModel();
+    case 'snail': return snailModel();
+    case 'oyster': return oysterModel();
+    case 'anglerfish': return anglerfishModel();
+    case 'seaDragon': return seaDragonModel();
     default: {
       const t = Object.values(FISH_TYPES).find((f) => f.kind === kind);
       return new THREE.Mesh(fishGeo(t), paintMat({ vertexColors: true }));

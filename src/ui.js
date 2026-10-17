@@ -120,10 +120,11 @@ export class UI {
     $('wardrobeTitle').textContent = t('wardrobe.title');
     $('wardrobeHint').textContent = t('wardrobe.hint');
     const groups = {
-      tail: ['teal', 'rose', 'sapphire', 'rainbow'],
-      top: ['lavender', 'seaGlass', 'coral', 'gold'],
-      head: ['none', 'coralClip', 'pearlTiara', 'crown'],
+      tail: ['teal', 'rose', 'sapphire', 'rainbow', 'pearl'],
+      top: ['lavender', 'seaGlass', 'coral', 'gold', 'shellTop'],
+      head: ['none', 'coralClip', 'pearlTiara', 'crown', 'pirateHat'],
       hair: ['long', 'bob', 'buns', 'braids', 'ponytail'],
+      hairColor: ['pink', 'golden', 'chestnut', 'midnight', 'seafoam', 'lilac', 'starlight'],
     };
     $('wardrobeChoices').innerHTML = Object.entries(groups).map(([category, items]) =>
       `<section class="dressGroup"><h3>${t('wardrobe.' + category)}</h3><div class="dressChoices">${items.map((item) => {
@@ -166,8 +167,8 @@ export class UI {
 export class Save {
   constructor() {
     const def = { stage: 'meet', pearls: [], crystals: [], friends: [], crown: false, rainbow: false,
-      sideQuests: {}, unlocked: ['teal', 'lavender', 'none', 'long'],
-      outfit: { tail: 'teal', top: 'lavender', head: 'none', hair: 'long' } };
+      sideQuests: {}, unlocked: ['teal', 'lavender', 'none', 'long', 'pink', 'golden', 'chestnut', 'midnight'],
+      outfit: { tail: 'teal', top: 'lavender', head: 'none', hair: 'long', hairColor: 'pink' } };
     const lang = (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
     const defS = { paint: true, sound: true, lang, quality: 'auto' };
     let data = null;
@@ -175,7 +176,7 @@ export class Save {
     this.state = { ...def, ...(data?.state || {}) };
     this.state.sideQuests ||= {};
     this.state.unlocked = Array.isArray(this.state.unlocked) ? this.state.unlocked : [...def.unlocked];
-    if (!this.state.unlocked.includes('long')) this.state.unlocked.push('long');
+    for (const k of ['long', 'pink', 'golden', 'chestnut', 'midnight']) if (!this.state.unlocked.includes(k)) this.state.unlocked.push(k);
     this.state.outfit = { ...def.outfit, ...(this.state.outfit || {}) };
     this.settings = { ...defS, ...(data?.settings || {}) };
   }

@@ -43,9 +43,48 @@ export const WORLD = {
   start: new THREE.Vector3(0, 30, 70),
 };
 
+// Shipwreck Bay: a hidden basin south of the trench, reached only through the tunnel.
+export const BAY = { center: new THREE.Vector3(60, 0, 450), radius: 118, minZ: 285, size: 320 };
+// The secret tunnel: starts in the trench's south wall, runs under the mountains, opens into the bay.
+// The first and last stretches are straight so the seabed can be cut neatly around them.
+export const TUNNEL = {
+  radius: 6.5,
+  curve: new THREE.CatmullRomCurve3([
+    new THREE.Vector3(60, -3, 190), new THREE.Vector3(60, -4, 200), new THREE.Vector3(60, -5, 210),
+    new THREE.Vector3(55, -8, 232), new THREE.Vector3(48, -6, 255), new THREE.Vector3(58, -10, 278),
+    new THREE.Vector3(70, -7, 300), new THREE.Vector3(66, -5, 322), new THREE.Vector3(63, -4, 334), new THREE.Vector3(62, -3, 344),
+  ], false, 'centripetal'),
+  // straight end pieces [from, to] where the seabed is cut away
+  ends: [[new THREE.Vector3(60, -3, 184), new THREE.Vector3(60, -5, 212)], [new THREE.Vector3(66, -5, 322), new THREE.Vector3(62, -3, 350)]],
+};
+const _tunnelPts = TUNNEL.curve.getSpacedPoints(400);
+// Is p inside the tunnel tube? Returns { inside, center, dist, t }.
+export function tunnelInfo(p) {
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < _tunnelPts.length; i += 4) { const d = _tunnelPts[i].distanceToSquared(p); if (d < bd) { bd = d; best = i; } }
+  for (let i = Math.max(0, best - 4); i <= Math.min(_tunnelPts.length - 1, best + 4); i++) { const d = _tunnelPts[i].distanceToSquared(p); if (d < bd) { bd = d; best = i; } }
+  const center = _tunnelPts[best], dist = Math.sqrt(bd);
+  const n = _tunnelPts.length - 1;
+  let inside = dist < TUNNEL.radius + 0.5;
+  if (best === 0) inside &&= p.clone().sub(_tunnelPts[0]).dot(_tunnelPts[1].clone().sub(_tunnelPts[0])) > 0;
+  if (best === n) inside &&= p.clone().sub(_tunnelPts[n]).dot(_tunnelPts[n - 1].clone().sub(_tunnelPts[n])) > 0;
+  return { inside, center, dist, t: best / n };
+}
+export const inBay = (p) => p.z > BAY.minZ - 20 && !tunnelInfo(p).inside;
+
+function bayHeight(x, z) {
+  const C = BAY.center;
+  const d = Math.hypot(x - C.x, z - C.z);
+  let h = fbm(x * 0.015 + 40, z * 0.015, 4) * 14 - 12;
+  h += Math.sin(x * 0.06) * Math.cos(z * 0.05) * 1.8;
+  h += THREE.MathUtils.smoothstep(d, BAY.radius - 12, BAY.radius + 30) * 90; // cliffs taller than the surface
+  return h;
+}
+
 // Seabed height. Flat-ish plaza around the city, dunes elsewhere,
 // a deep glowing trench in the south-east, rim mountains at the edge.
 export function groundHeight(x, z) {
+  if (z > WORLD.size / 2 + 2) return bayHeight(x, z);
   let h = fbm(x * 0.012, z * 0.012, 5) * 22 - 8;
   h += Math.sin(x * 0.05) * Math.cos(z * 0.043) * 2.5;
   const r = Math.hypot(x, z);

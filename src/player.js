@@ -1,6 +1,7 @@
 // The player's mermaid: swimming physics, surface leaps, and the follow camera.
 import * as THREE from 'three';
-import { WORLD, groundHeight, damp, bubbleTexture } from './util.js';
+import { WORLD, BAY, TUNNEL, tunnelInfo, groundHeight, damp, bubbleTexture } from './util.js';
+import { houseLimit, houseCamera } from './bay.js';
 import { MerModel, PALETTES } from './mermaid.js';
 import { collide } from './world.js';
 import { castleFloorHeight } from './city.js';
@@ -93,19 +94,15 @@ export class Player {
     this.position.addScaledVector(this.velocity, dt);
 
     // ---- world limits ----
-    const g = castleFloorHeight(this.position.x, this.position.z, this.position.y);
-    if (this.position.y < g + 1.0) { this.position.y = g + 1.0; this.velocity.y = Math.max(0, this.velocity.y); }
-    const surf = WORLD.surfaceY - 0.6;
-    if (!this.airborne && this.position.y > surf) {
-      if (this.velocity.y > 6) { this.airborne = true; this.velocity.y *= 1.35; this.splashCb?.(this.position); }
-      else { this.position.y = surf; this.velocity.y = Math.min(0, this.velocity.y); }
-    } else if (this.airborne && this.position.y < surf && this.velocity.y < 0) {
-      this.airborne = false; this.velocity.y *= 0.4; this.splashCb?.(this.position);
-    }
-    const lim = WORLD.size / 2 - 15;
-    this.position.x = THREE.MathUtils.clamp(this.position.x, -lim, lim);
-    this.position.z = THREE.MathUtils.clamp(this.position.z, -lim, lim);
-    collide(this.position, 1.0);
+    const tin = tunnelInfo(this.position);
+    this.inTunnel = tin.inside;
+    if (tin.inside) {
+      // inside the secret tunnel: the round walls are the only limit
+      const lim = TUNNEL.radius - 1.1;
+      if (tin.dist > lim) this.position.sub(tin.center).multiplyScalar(lim / tin.dist).add(tin.center);
+      this.airborne = false;
+    } else this.limitOpenWater();
+    this.inBay = this.position.z > WORLD.size / 2;
 
     // ---- model orientation & animation ----
     const hv = Math.hypot(this.velocity.x, this.velocity.z);
@@ -146,6 +143,30 @@ export class Player {
     this.updateCamera(dt);
   }
 
+  // Seabed, water surface, map edges, walls and shell-house ceilings (everywhere but the tunnel).
+  limitOpenWater() {
+    const g = castleFloorHeight(this.position.x, this.position.z, this.position.y);
+    if (this.position.y < g + 1.0) { this.position.y = g + 1.0; this.velocity.y = Math.max(0, this.velocity.y); }
+    const surf = WORLD.surfaceY - 0.6;
+    if (!this.airborne && this.position.y > surf) {
+      if (this.velocity.y > 6) { this.airborne = true; this.velocity.y *= 1.35; this.splashCb?.(this.position); }
+      else { this.position.y = surf; this.velocity.y = Math.min(0, this.velocity.y); }
+    } else if (this.airborne && this.position.y < surf && this.velocity.y < 0) {
+      this.airborne = false; this.velocity.y *= 0.4; this.splashCb?.(this.position);
+    }
+    if (this.position.z > WORLD.size / 2) {
+      // Shipwreck Bay is round, ringed by tall cliffs
+      const C = BAY.center, d = Math.hypot(this.position.x - C.x, this.position.z - C.z), lim = BAY.radius - 4;
+      if (d > lim) { this.position.x = C.x + (this.position.x - C.x) * lim / d; this.position.z = C.z + (this.position.z - C.z) * lim / d; }
+    } else {
+      const lim = WORLD.size / 2 - 15;
+      this.position.x = THREE.MathUtils.clamp(this.position.x, -lim, lim);
+      this.position.z = THREE.MathUtils.clamp(this.position.z, -lim, lim);
+    }
+    collide(this.position, 1.0);
+    if (this.houses) houseLimit(this.position, this.houses);
+  }
+
   dirFacing() { return new THREE.Vector3(Math.sin(this.facing), 0, Math.cos(this.facing)); }
 
   doDash() { this.dash = 0.6; }
@@ -155,9 +176,16 @@ export class Player {
     const target = new THREE.Vector3(this.position.x, this.position.y + 0.9, this.position.z);
     const desired = target.clone().addScaledVector(f, -this.dist);
     desired.y += 0.6;
-    // keep the camera above the seabed and below the surface
-    const g = groundHeight(desired.x, desired.z) + 0.8;
-    if (desired.y < g) desired.y = g;
+    if (this.inTunnel) {
+      // stay inside the tunnel walls
+      const ti = tunnelInfo(desired), lim = TUNNEL.radius - 0.9;
+      if (ti.dist > lim) desired.sub(ti.center).multiplyScalar(lim / ti.dist).add(ti.center);
+    } else {
+      // keep the camera above the seabed and below the surface
+      const g = groundHeight(desired.x, desired.z) + 0.8;
+      if (desired.y < g) desired.y = g;
+      if (this.houses) houseCamera(desired, this.position, this.houses);
+    }
     if (desired.y > WORLD.surfaceY + (this.airborne ? 8 : -0.3)) desired.y = WORLD.surfaceY + (this.airborne ? 8 : -0.3);
     this.camPos.x = damp(this.camPos.x, desired.x, 8, dt);
     this.camPos.y = damp(this.camPos.y, desired.y, 8, dt);

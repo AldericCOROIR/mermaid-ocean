@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { canvasTexture } from './util.js';
 import { paintMat } from './geom.js';
+import { pirateHat } from './seafolk.js';
 
 const scaleTexCache = new Map();
 function scaleTexture(c1, c2) {
@@ -52,6 +53,10 @@ const ball = (r, m, x, y, z, sx = 1, sy = 1, sz = 1) => {
   const b = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), m);
   b.position.set(x, y, z); b.scale.set(sx, sy, sz);
   return b;
+};
+const HAIR_COLORS = {
+  pink: [0xff9fd2, 0xffc6e6], golden: [0xffd35e, 0xfff0a8], chestnut: [0x9a5a3a, 0xc98a5e], midnight: [0x2e3a8c, 0x5a6ad0],
+  seafoam: [0x4fd8b8, 0xb0fff0], lilac: [0xb88cff, 0xe4d0ff], starlight: [0xe6f0ff, 0xffd0f0],
 };
 const ribbon = () => paintMat({ color: 0xff7fb8, emissive: 0x5a1838 });
 const HAIR_STYLES = {
@@ -333,9 +338,9 @@ export class MerModel {
   setOutfit(outfit = {}) {
     const tails = {
       teal: ['#3fd1c7', '#a8fff2'], rose: ['#ff7fac', '#ffe0ef'],
-      sapphire: ['#448fe8', '#b9e7ff'], rainbow: ['#ff8fcf', '#9ff3ff'],
+      sapphire: ['#448fe8', '#b9e7ff'], rainbow: ['#ff8fcf', '#9ff3ff'], pearl: ['#efe6ff', '#ffd6f0'],
     };
-    const tops = { lavender: 0xb98cff, seaGlass: 0x69e5d2, coral: 0xff8eab, gold: 0xffd36b };
+    const tops = { lavender: 0xb98cff, seaGlass: 0x69e5d2, coral: 0xff8eab, gold: 0xffd36b, shellTop: 0xffb8dc };
     const [c1, c2] = tails[outfit.tail] || tails.teal;
     this.setTailColors(c1, c2);
     const top = tops[outfit.top] || tops.lavender;
@@ -343,6 +348,15 @@ export class MerModel {
     this.topMat.emissive.setHex(top).multiplyScalar(0.2);
     this.setHeadwear(outfit.head || 'none');
     this.setHair(outfit.hair || 'long');
+    this.setHairColor(outfit.hairColor);
+  }
+
+  // Hair colours from the wardrobe (the player's own palette is the default).
+  setHairColor(name) {
+    if (!this.hairM) return;
+    const c = HAIR_COLORS[name] || [this.pal.hair, this.pal.hair2];
+    this.hairM.color.setHex(c[0]); this.hairM.emissive.setHex(c[0]).multiplyScalar(0.18);
+    this.hair2M.color.setHex(c[1]); this.hair2M.emissive.setHex(c[1]).multiplyScalar(0.18);
   }
 
   // hairstyles from the wardrobe; built lazily, each with its own swaying parts
@@ -390,6 +404,9 @@ export class MerModel {
       }
       tiara.position.set(0, 0.34, 0.03);
       this.head.add(tiara); this.headwear.pearlTiara = tiara;
+      const hat = pirateHat(0.95);
+      hat.position.set(0, 0.5, -0.02); hat.rotation.x = -0.15;
+      this.head.add(hat); this.headwear.pirateHat = hat;
     }
     if (kind === 'crown' && !this.crown) this.addCrown();
     if (this.crown) this.crown.visible = kind === 'crown';

@@ -3,24 +3,35 @@ import * as THREE from 'three';
 import { WORLD, groundHeight, glowTexture, canvasTexture, rr } from './util.js';
 import { MerModel, PALETTES } from './mermaid.js';
 import { seahorseModel, turtleModel, octopusModel, dolphinModel, whaleModel } from './creatures.js';
+import { costumeCrab, lobsterModel, hermitCrabModel, snailModel, sealModel, oysterModel } from './seafolk.js';
+import { tunnelInfo, TUNNEL } from './util.js';
 import { paintMat } from './geom.js';
 import { collide } from './world.js';
 import { t } from './i18n.js';
 import { sfx } from './audio.js';
 
 export const STAGES = ['meet', 'pearls', 'backQueen', 'baby', 'bringBaby', 'whale', 'shelly', 'crystals', 'finale', 'free'];
-export const ALBUM = ['clownfish', 'tang', 'yellowfish', 'angelfish', 'seahorse', 'crab', 'puffer', 'octopus', 'jellyfish', 'turtle', 'manta', 'dolphin', 'whale', 'narwhal', 'seaBunny', 'starfish', 'otter', 'mermaid', 'guard'];
+export const ALBUM = ['clownfish', 'tang', 'yellowfish', 'angelfish', 'seahorse', 'crab', 'puffer', 'octopus', 'jellyfish', 'turtle', 'manta', 'dolphin', 'whale', 'narwhal', 'seaBunny', 'starfish', 'otter', 'seal', 'lobster', 'hermitCrab', 'snail', 'oyster', 'anglerfish', 'seaDragon', 'mermaid', 'guard'];
 // Baby animals who need help: collect their things, bring them back, win a hairstyle.
+// Collect missions: find the things a friend asks for, bring them back, win something for the wardrobe.
 const BABIES = {
-  tico: { kind: 'turtle', count: 3, item: 'grape', reward: ['braids', 'hair'], radius: 2.8 },
-  pip: { kind: 'octopus', count: 4, item: 'toy', reward: ['buns', 'hair'], radius: 2.8 },
-  splash: { kind: 'dolphin', count: 4, item: 'ring', reward: ['ponytail', 'hair'], radius: 3.2 },
-  momo: { kind: 'whale', count: 3, item: 'star', reward: ['bob', 'hair'], radius: 3 },
+  tico: { kind: 'turtle', count: 3, item: 'grape', rewards: [['braids', 'hair']], radius: 2.8 },
+  pip: { kind: 'octopus', count: 4, item: 'toy', rewards: [['buns', 'hair']], radius: 2.8 },
+  splash: { kind: 'dolphin', count: 4, item: 'ring', rewards: [['ponytail', 'hair']], radius: 3.2 },
+  momo: { kind: 'whale', count: 3, item: 'star', rewards: [['bob', 'hair']], radius: 3 },
+  // Shipwreck Bay
+  pinch: { kind: 'crab', count: 5, item: 'coin', rewards: [['pirateHat', 'head']], radius: 3 },
+  rosa: { kind: 'lobster', count: 3, item: 'pepper', rewards: [['shellTop', 'top'], ['lilac', 'hairColor']], radius: 2.8 },
+  shellby: { kind: 'hermitCrab', count: 3, item: 'shell', rewards: [['pearl', 'tail'], ['starlight', 'hairColor']], radius: 3 },
 };
-const SIDE_IDS = ['tailor', 'keeper', 'bard', ...Object.keys(BABIES)];
+const SIDE_IDS = ['tailor', 'keeper', 'bard', ...Object.keys(BABIES), 'whelk'];
+// Characters of the bay who just love to chat (lines rotate each visit).
+const CHATTERS = { clawsworth: 3, selkie: 3, madamePearl: 2 };
 const TRAIL_COLORS = { main: 0xfff3a0, tailor: 0xff8fd0, keeper: 0x7ff0ff, bard: 0xc49bff,
-  tico: 0x9dff8a, pip: 0xffa860, splash: 0x5fa8ff, momo: 0xff7a8a };
-const FACES = { marina: '🧜‍♀️', queen: '👸', guard: '🔱', coral: '🧜🏾‍♀️', pearl: '🧜‍♀️', mama: '💛', baby: '🍼', shelly: '🐢', whale: '🐋', tailor: '🧵', baker: '🧁', keeper: '⛲', bard: '🎶', librarian: '📚', fairy: '🧚', tico: '🐢', pip: '🐙', splash: '🐬', momo: '🐳', citizen: '🧜‍♀️', activity: '🧜🏼‍♀️', ambientSeahorse: '🌊' };
+  tico: 0x9dff8a, pip: 0xffa860, splash: 0x5fa8ff, momo: 0xff7a8a,
+  pinch: 0xffd23f, rosa: 0xff6a4a, shellby: 0xff9fe8, whelk: 0x8affd8 };
+const FACES = { marina: '🧜‍♀️', queen: '👸', guard: '🔱', coral: '🧜🏾‍♀️', pearl: '🧜‍♀️', mama: '💛', baby: '🍼', shelly: '🐢', whale: '🐋', tailor: '🧵', baker: '🧁', keeper: '⛲', bard: '🎶', librarian: '📚', fairy: '🧚', tico: '🐢', pip: '🐙', splash: '🐬', momo: '🐳', citizen: '🧜‍♀️', activity: '🧜🏼‍♀️', ambientSeahorse: '🌊',
+  pinch: '🦀', rosa: '🦞', shellby: '🐚', whelk: '🐌', clawsworth: '🛡️', selkie: '🦭', madamePearl: '🔮' };
 
 function starTexture(fill = '#ffe066', halo = ['rgba(255,250,200,0.9)', 'rgba(255,220,120,0)']) {
   return canvasTexture(128, 128, (g) => {
@@ -104,7 +115,7 @@ function clamModel() {
 
 function babyItemModel(item) {
   const g = new THREE.Group();
-  const glowCol = { grape: 0xd59bff, toy: 0xffc0a0, ring: 0xbff0ff, star: 0xffe680 }[item];
+  const glowCol = { grape: 0xd59bff, toy: 0xffc0a0, ring: 0xbff0ff, star: 0xffe680, coin: 0xffe066, pepper: 0xff9a4a, shell: 0xffc8f8 }[item];
   if (item === 'grape') {
     const m = paintMat({ color: 0x9a5bdc, emissive: 0x3a1a60 });
     [[0, 0.5, 0], [-0.25, 0.25, 0.1], [0.25, 0.25, 0.1], [0, 0.25, -0.2], [-0.12, 0, 0], [0.12, 0, 0.05], [0, -0.22, 0]]
@@ -128,6 +139,30 @@ function babyItemModel(item) {
       const b = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), paintMat({ color: 0xffffff, emissive: 0x6090b0 }));
       b.position.set(Math.cos(a) * 1.6, Math.sin(a) * 1.6, 0.15); g.add(b);
     }
+  } else if (item === 'coin') {
+    const gold = paintMat({ color: 0xffd23f, emissive: 0x7a5410 });
+    const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.12, 20), gold);
+    coin.rotation.x = Math.PI / 2; g.add(coin);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.07, 6, 20), gold); g.add(rim);
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), paintMat({ color: 0xfff4b0, emissive: 0x8a7020 }));
+    star.scale.set(1, 1, 0.4); g.add(star);
+  } else if (item === 'pepper') {
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1, 6), paintMat({ color: 0x5fcf6a, emissive: 0x104010 }));
+    stem.position.y = -0.4; g.add(stem);
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      const petal = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6), paintMat({ color: 0xff8a3a, emissive: 0x7a3010 }));
+      petal.scale.set(1, 0.4, 0.6); petal.position.set(Math.cos(a) * 0.32, 0.15, Math.sin(a) * 0.32); petal.rotation.y = -a; g.add(petal);
+    }
+    const heart = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), paintMat({ color: 0xffe066, emissive: 0x8a6a10 }));
+    heart.position.y = 0.2; g.add(heart);
+  } else if (item === 'shell') {
+    const geo = new THREE.LatheGeometry(Array.from({ length: 21 }, (_, i) => { const t = i / 20; return new THREE.Vector2(Math.max(0.02, 0.6 * Math.pow(1 - t, 0.9) * (0.85 + 0.15 * Math.cos(t * 26))), t * 1.4); }), 14);
+    const p = geo.attributes.position, col = [];
+    for (let i = 0; i < p.count; i++) { const c = new THREE.Color().setHSL((p.getY(i) * 0.5 + 0.8) % 1, 0.7, 0.75); col.push(c.r, c.g, c.b); }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    const sh = new THREE.Mesh(geo, paintMat({ vertexColors: true, emissive: 0x403040 }));
+    sh.rotation.z = 1.1; sh.position.set(-0.4, -0.3, 0); g.add(sh);
   } else {
     const shape = new THREE.Shape();
     for (let i = 0; i <= 10; i++) { const a = (i / 10) * Math.PI * 2 + Math.PI / 2, r = i % 2 ? 0.25 : 0.6; i ? shape.lineTo(Math.cos(a) * r, Math.sin(a) * r) : shape.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
@@ -157,6 +192,7 @@ export class Story {
     this.buildPearls();
     this.buildCrystals();
     this.buildBabies();
+    if (this.state.portal) ctx.bay?.setPortal(true);
     this.buildGuide();
     this.applyRewards();
     this.refreshQuest();
@@ -230,6 +266,19 @@ export class Story {
       splash: [splash, new THREE.Vector3(st.x - 10, st.y - 4, st.z - 4), [0, 1, 2, 3].map((i) => new THREE.Vector3(st.x - 20 - i * 9, st.y - 6 + Math.sin(i) * 3, st.z - 18 - i * 6))],
       momo: [momo, gh(T.x - 35, T.z - 30, 8), [gh(T.x - 5, T.z + 5, 2), gh(T.x + 20, T.z - 15, 2), gh(T.x - 22, T.z + 18, 2)]],
     };
+    // the sea folk of Shipwreck Bay
+    const B = this.ctx.bay?.spots;
+    if (B) {
+      const big = (m, s) => { m.scale.setScalar(s); return m; };
+      where.pinch = [big(costumeCrab(0xff5a4d, 'pirate'), 1.8), B.pinch, B.coins];
+      where.rosa = [big(lobsterModel(0xff5a3c, true), 1.7), B.rosa, B.pepper];
+      where.shellby = [big(hermitCrabModel(0xffb3d1), 1.9), B.shellby, B.shells];
+      this.addNPC('whelk', { root: big(snailModel(0xb88cff, true), 1.8) }, B.whelk).friendKind = 'snail';
+      this.addNPC('clawsworth', { root: big(costumeCrab(0x6fa8ff, 'knight'), 1.7) }, B.clawsworth).friendKind = 'crab';
+      this.addNPC('selkie', { root: big(sealModel(), 1.4) }, B.selkie).friendKind = 'seal';
+      this.addNPC('madamePearl', { root: big(oysterModel(), 1.3) }, B.madamePearl).friendKind = 'oyster';
+      for (const id of Object.keys(CHATTERS)) this.npcs.find((n) => n.id === id).noSpin = true;
+    }
     this.state.sideItems ||= {};
     this.babyItems = {};
     for (const [id, [model, pos, spots]] of Object.entries(where)) {
@@ -381,6 +430,7 @@ export class Story {
       const left = this.babyItems[id].filter((x) => !x.got).sort((a, b) => a.g.position.distanceTo(P) - b.g.position.distanceTo(P));
       return left[0]?.g.position || null;
     }
+    if (q[id] === 'active' && id === 'whelk') return this.ctx.bay.bayHouse.center.clone().add(new THREE.Vector3(0, 3, 0));
     if (q[id] === 'active') return { tailor: S.fountain, keeper: S.bridgeWest, bard: S.bridgeEast }[id] || null;
     if (q[id] === 'ready') return this.npcs.find((n) => n.id === id)?.root.position || null;
     return null;
@@ -394,8 +444,8 @@ export class Story {
     }
     if (q[id] === 'ready') {
       q[id] = 'done';
-      const reward = BABIES[id]?.reward || { tailor: ['coralClip', 'head'], keeper: ['seaGlass', 'top'], bard: ['sapphire', 'tail'] }[id];
-      this.unlockCosmetic(...reward);
+      const rewards = BABIES[id]?.rewards || [{ tailor: ['coralClip', 'head'], keeper: ['seaGlass', 'top'], bard: ['sapphire', 'tail'] }[id]];
+      for (const r of rewards) this.unlockCosmetic(...r);
       this.celebrate(this.ctx.player.position);
       this.refreshSideQuest();
       return [[id, id + 'Gift']];
@@ -413,6 +463,12 @@ export class Story {
     if (id === 'coral') return L('coral');
     if (id === 'pearl') return L('pearl');
     if (['tailor', 'keeper', 'bard'].includes(id) || BABIES[id]) return this.sideQuest(id);
+    if (id === 'whelk') return this.whelkTalk();
+    if (CHATTERS[id]) {
+      npc.chat = ((npc.chat ?? -1) + 1) % CHATTERS[id];
+      if (id === 'madamePearl') return L(this.state.portal ? 'madamePearlOn' : 'madamePearlOff', 'madamePearl' + (npc.chat + 1));
+      return L(id + (npc.chat + 1));
+    }
     if (['baker', 'librarian', 'fairy'].includes(id)) return L(id);
     if (id === 'queen') {
       if (s === 'meet') { this.setStage('pearls'); return L('queen1', 'queen2'); }
@@ -445,6 +501,64 @@ export class Story {
     }
     if (id === 'whale' && s === 'whale') { sfx('whale'); this.setStage('shelly'); return [['whale', 'whale'], ['whale', 'whaleNext']]; }
     return null;
+  }
+
+  // Old Whelk sends you through the secret tunnel to find the shell house (which wakes the portal).
+  whelkTalk() {
+    const q = this.state.sideQuests;
+    if (q.whelk === 'done') return [['whelk', 'whelkAfter']];
+    if (this.state.portal) { this.finishWhelk(); return [['whelk', 'whelkGift']]; }
+    if (!q.whelk) { q.whelk = 'active'; this.ctx.save.write(); this.tracked = this.sideShown = 'whelk'; this.refreshSideQuest(); return [['whelk', 'whelkQuest'], ['whelk', 'whelkQuest2']]; }
+    return [['whelk', 'whelkHint']];
+  }
+  finishWhelk() {
+    const q = this.state.sideQuests;
+    if (q.whelk === 'done') return;
+    q.whelk = 'done';
+    this.unlockCosmetic('seafoam', 'hairColor');
+    this.refreshSideQuest();
+  }
+
+  // Shell house portals: found in the bay first, then they link the bay and the castle.
+  updatePortals(dt, P) {
+    const bay = this.ctx.bay;
+    if (!bay) return;
+    const bp = bay.bayHouse.portal, cp = bay.castleHouse.portal;
+    if (!this.state.portal && P.distanceTo(bp.pos) < 8) {
+      this.state.portal = true; bay.setPortal(true);
+      this.celebrate(bp.pos, true);
+      if (this.state.sideQuests.whelk === 'active') this.finishWhelk();
+      this.ctx.save.write();
+      this.ctx.ui.toast(t('portalAwake'));
+    }
+    this.portalCool = Math.max(0, (this.portalCool || 0) - dt);
+    if (!this.state.portal || this.portalCool > 0) return;
+    for (const [from, to] of [[bp, cp], [cp, bp]]) {
+      if (P.distanceTo(from.pos) < 2.4) {
+        const pl = this.ctx.player;
+        pl.position.copy(to.exit); pl.velocity.set(0, 0, 0);
+        pl.yaw = pl.facing = to.facing; pl.snapCamera();
+        this.portalCool = 2.5;
+        this.bursts.emit(to.exit.clone(), 30, 'spark', 0xe8c8ff, 7);
+        this.ctx.ui.toast(t(to === cp ? 'portalCastle' : 'portalBay'));
+        break;
+      }
+    }
+  }
+
+  // The sparkle trail can't go through rock: lead the way through the tunnel (or a portal).
+  route(tgt) {
+    const pl = this.ctx.player, P = pl.position;
+    const tgtBay = tgt.z > WORLD.size / 2 - 10;
+    if (pl.inTunnel) {
+      const ti = tunnelInfo(P);
+      if (tgtBay === !!pl.inBay && tgt.distanceTo(P) < 30) return tgt;
+      return TUNNEL.curve.getPointAt(THREE.MathUtils.clamp(ti.t + (tgtBay ? 0.12 : -0.12), 0, 1));
+    }
+    if (tgtBay === !!pl.inBay) return tgt;
+    const bay = this.ctx.bay;
+    if (this.state.portal && bay) return (pl.inBay ? bay.bayHouse : bay.castleHouse).portal.pos;
+    return pl.inBay ? bay.spots.tunnelExit : bay.spots.tunnelMouth;
   }
 
   celebrate(pos, big = false) {
@@ -486,6 +600,7 @@ export class Story {
     const camera = this.ctx.player.camera;
     const sq = this.state.sideQuests;
     const S = this.ctx.city.spots;
+    this.updatePortals(dt, P);
     const ready = (id) => { if (sq[id] === 'active') { sq[id] = 'ready'; this.ctx.save.write(); this.refreshSideQuest(); this.ctx.ui.toast(t('side.ready')); } };
     if (sq.tailor === 'active' && P.distanceTo(S.fountain) < 11) ready('tailor');
     if (sq.keeper === 'active' && P.distanceTo(S.bridgeWest) < 11) ready('keeper');
@@ -528,6 +643,8 @@ export class Story {
           n.home.z + Math.sin(n.t * 0.65) * r);
         n.root.rotation.y = n.activity === 'court' ? -n.t * 0.65 : Math.sin(n.t * 0.7) * 0.6;
         n.model.update(dt, n.activity === 'court' ? 0.35 : 0.1, n.activity === 'court' ? 0.8 : 0.25);
+      } else if (n.noSpin) {
+        n.root.position.y = n.home.y + Math.sin(n.t * 1.3) * 0.15;
       } else if (n.model.update) {
         n.model.update(dt, 0, 0);
       } else {
@@ -539,7 +656,7 @@ export class Story {
         let dd = want - n.root.rotation.y; dd = Math.atan2(Math.sin(dd), Math.cos(dd));
         n.root.rotation.y += dd * Math.min(1, dt * 3);
       }
-      const r = n.id === 'queen' ? 7 : ['mama', 'shelly', 'momo'].includes(n.id) ? 6 : 4.5;
+      const r = n.id === 'queen' ? 7 : ['mama', 'shelly', 'momo', 'pinch', 'rosa', 'shellby', 'whelk', 'clawsworth', 'selkie', 'madamePearl'].includes(n.id) ? 6 : 4.5;
       const rr2 = ['citizen', 'activity', 'ambientSeahorse'].includes(n.id) ? 3.5 : r;
       if (d < rr2 && d < nd) { nearest = n; nd = d; }
       if (d > rr2 + 3) this.greeted.delete(n);
@@ -632,7 +749,7 @@ export class Story {
       const dc = camera.position.distanceTo(above);
       this.marker.scale.setScalar(THREE.MathUtils.clamp(dc * 0.06, 1.6, 9));
       this.marker.material.rotation = Math.sin(time * 2) * 0.2;
-      const dir = tgt.clone().sub(P);
+      const dir = this.route(tgt).clone().sub(P);
       const dist = dir.length();
       dir.normalize();
       const len = Math.min(dist - 2, 22);

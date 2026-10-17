@@ -9,6 +9,7 @@ import { Player } from './player.js';
 import { Controls } from './controls.js';
 import { Story, ALBUM } from './quests.js';
 import { Follower } from './follower.js';
+import { buildBay } from './bay.js';
 import { UI, Save } from './ui.js';
 import { Post } from './post.js';
 import { PaintProjection } from './projection.js';
@@ -66,12 +67,16 @@ projection.applyTo(world.group, 'world');
 projection.applyTo(city.group, 'castle');
 projection.load();
 const creatures = spawnCreatures(scene);
+// the secret tunnel, Shipwreck Bay and the shell houses
+const bay = buildBay(scene, creatures);
+brush.applyTo(bay.group);
 const player = new Player(scene, camera);
+player.houses = bay.houses;
 const controls = new Controls(canvas);
 const ui = new UI();
 ui.settings = settings;
 ui.getFriends = () => save.state.friends;
-const story = new Story(scene, { player, city, creatures, ui, save });
+const story = new Story(scene, { player, city, creatures, ui, save, bay });
 const follower = new Follower(scene, player);
 if (save.state.follower && save.state.friends.includes(save.state.follower)) follower.set(save.state.follower);
 ui.getFollower = () => follower.kind;
@@ -85,7 +90,7 @@ ui.onBubbleOk = () => story.advanceDialog();
 ui.onTrack = (id) => story.track(id);
 ui.getWardrobe = () => ({ unlocked: save.state.unlocked, outfit: save.state.outfit });
 ui.onWardrobeSelect = (category, item) => {
-  if (!['tail', 'top', 'head', 'hair'].includes(category) || !save.state.unlocked.includes(item)) return;
+  if (!['tail', 'top', 'head', 'hair', 'hairColor'].includes(category) || !save.state.unlocked.includes(item)) return;
   save.state.outfit[category] = item;
   player.model.setOutfit(save.state.outfit);
   save.write(); ui.renderWardrobe();
@@ -209,6 +214,12 @@ const SHOTS = {
   walk2: { p: [18, 7, -95], yaw: Math.PI * 1.35, pitch: -0.05, dist: 6 },
   overview: { p: [0, 8, -75], yaw: Math.PI, pitch: -0.25, dist: 8 },
   start: { p: [WORLD.start.x, WORLD.start.y, WORLD.start.z], yaw: Math.PI, pitch: -0.12, dist: 7 },
+  tunnelmouth: { p: [60, 2, 160], yaw: 0, pitch: -0.05, dist: 8 },
+  tunnel: { p: [56, -8, 232], yaw: -0.25, pitch: 0, dist: 5 },
+  bay: { p: [62, 6, 362], yaw: 0.2, pitch: -0.12, dist: 8 },
+  shipwreck: { p: [70, 6, 405], yaw: 0.9, pitch: -0.15, dist: 9 },
+  shellhouse: { p: [36, 4, 422], yaw: -2.24, pitch: -0.08, dist: 8 },
+  castlehouse: { p: [-24, 4, -156], yaw: -Math.PI / 2, pitch: -0.08, dist: 8 },
 };
 let shotFrames = 0, shotReadyFrames = 0, paintSweep = 0;
 // clean=1 hides everything that moves: the 'plain blocks' plate that gets painted over
@@ -233,6 +244,8 @@ function hideMovers() {
 const clock = new THREE.Clock();
 let elapsed = 0, perfAcc = 0, perfN = 0, perfT = 0;
 const fogC = new THREE.Color();
+const FOG_TUNNEL = new THREE.Color(0x6a4a9a);
+let tunnelMix = 0;
 const shotControls = { consumeLook: () => ({ dx: 0, dy: 0 }), move: { x: 0, y: 0 }, vertical: 0, dragging: false, consumeAction: () => false, poll() {} };
 
 function frame() {
@@ -276,6 +289,13 @@ function frame() {
   if (SHOT === 'overview') scene.fog.density = 0.001;
   if (COMPARE) scene.fog.density = 0.0008;
   hemi.intensity = 2.15 - depthY * 0.55;
+  // the flower tunnel glows a soft magical violet
+  tunnelMix = THREE.MathUtils.damp(tunnelMix, player.inTunnel ? 1 : 0, 3, dt);
+  if (tunnelMix > 0.001) {
+    scene.fog.color.lerp(FOG_TUNNEL, tunnelMix);
+    scene.fog.density = THREE.MathUtils.lerp(scene.fog.density, 0.012, tunnelMix);
+    hemi.intensity = THREE.MathUtils.lerp(hemi.intensity, 2.3, tunnelMix);
+  }
 
   projection.updateActive(camera.position);
   if (performance.now() - paintSweep > 1000) { paintSweep = performance.now(); brush.sweep(scene, [world.group, city.group]); } // paint anything new
@@ -306,4 +326,4 @@ projection.bakeDepth([world.group, city.group]);
 scene.children.forEach((o) => { if (o !== world.group && o !== city.group) brush.applyTo(o, true); });
 document.getElementById('loading').classList.add('hidden');
 requestAnimationFrame(frame);
-window.__game = { player, story, follower, ui, camera, settings, city, projection, scene, Brushwork };
+window.__game = { bay, player, story, follower, ui, camera, settings, city, projection, scene, Brushwork };
