@@ -20,7 +20,7 @@ import { PaintProjection } from './projection.js';
 import { Brushwork } from './brushwork.js';
 import { PAINT_VIEWS } from './paintviews.js';
 import { setLang, getLang, t } from './i18n.js';
-import { initAudio, setSound, sfx } from './audio.js';
+import { initAudio, setSound, setVoiceMode, sfx } from './audio.js';
 import { VoiceInput } from './voice-input.js';
 
 const params = new URLSearchParams(location.search);
@@ -35,6 +35,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const save = new Save();
 const settings = save.settings;
 setLang(settings.lang);
+setVoiceMode(settings.voiceMode);
 
 // Pick a starting quality from the device; it can still drop at runtime.
 if (!['high', 'medium', 'low'].includes(settings.quality)) {
@@ -190,6 +191,12 @@ function makeThumbs() {
 const $ = (id) => document.getElementById(id);
 $('optPaint').onclick = () => { settings.paint = !settings.paint; applyQuality(); save.write(); ui.renderMenu(); };
 $('optSound').onclick = () => { settings.sound = !settings.sound; setSound(settings.sound); save.write(); ui.renderMenu(); };
+$('optVoiceMode').onclick = () => {
+  settings.voiceMode = settings.voiceMode === 'characters' ? 'device' : 'characters';
+  setVoiceMode(settings.voiceMode);
+  save.write(); ui.renderMenu();
+  ui.toast(t(settings.voiceMode === 'characters' ? 'voiceCharacters' : 'voiceDevice'));
+};
 $('optLang').onclick = () => { settings.lang = getLang() === 'en' ? 'fr' : 'en'; setLang(settings.lang); save.write(); ui.renderMenu(); ui.applyTitle(); story.refreshQuest(); };
 $('optQuality').onclick = () => { settings.quality = { high: 'medium', medium: 'low', low: 'high' }[settings.quality]; settings.qualityManual = true; applyQuality(); save.write(); ui.renderMenu(); };
 $('optReset').onclick = () => save.reset();

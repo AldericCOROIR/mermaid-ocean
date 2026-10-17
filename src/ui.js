@@ -165,6 +165,7 @@ export class UI {
     $('menuTitle').textContent = t('settings');
     $('optPaint').textContent = s.paint ? t('paintOn') : t('paintOff');
     $('optSound').textContent = s.sound ? t('soundOn') : t('soundOff');
+    $('optVoiceMode').textContent = t(s.voiceMode === 'characters' ? 'voiceCharacters' : 'voiceDevice');
     $('optLang').textContent = t('lang');
     $('optQuality').textContent = t({ high: 'qHigh', medium: 'qMed', low: 'qLow' }[s.quality]);
     $('optReset').textContent = t('reset');
@@ -184,7 +185,7 @@ export class Save {
       sideQuests: {}, unlocked: ['teal', 'lavender', 'none', 'long', 'pink', 'golden', 'chestnut', 'midnight'],
       outfit: { tail: 'teal', top: 'lavender', head: 'none', hair: 'long', hairColor: 'pink' } };
     const lang = (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
-    const defS = { paint: true, sound: true, lang, quality: 'auto' };
+    const defS = { paint: true, sound: true, voiceMode: 'device', lang, quality: 'auto' };
     let data = null;
     try { data = JSON.parse(localStorage.getItem('mermaid-ocean-v1') || 'null'); } catch { data = null; }
     this.state = { ...def, ...(data?.state || {}) };

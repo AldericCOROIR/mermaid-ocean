@@ -6,6 +6,7 @@ import { VOICE_INDEX } from './voice-index.js';
 let enabled = true;
 const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
 let clipEnabled = false;
+let voiceMode = 'device';
 let currentClip = null;
 let currentUtterance = null;
 let playing = false;
@@ -61,6 +62,11 @@ export function setSound(on) {
   if (!on) stopAudio();
 }
 
+export function setVoiceMode(mode) {
+  voiceMode = mode === 'characters' ? 'characters' : 'device';
+  stopAudio();
+}
+
 function pickVoice(code, who) {
   let list;
   try { list = synth.getVoices().filter((v) => v.lang.replace('_', '-').toLowerCase().startsWith(code)); }
@@ -107,7 +113,7 @@ function playNext() {
   };
   const exact = VOICE_INDEX[`${line.who}|${line.text}`];
   const clipPath = exact || VOICE_INDEX[`${line.who}|${withoutCounter(line.text)}`];
-  if (clipEnabled && getLang() === 'fr' && clipPath) {
+  if (voiceMode === 'characters' && clipEnabled && getLang() === 'fr' && clipPath) {
     let clip;
     try { clip = new Audio(clipPath); } catch { browserSay(line, finish); return; }
     currentClip = clip;
