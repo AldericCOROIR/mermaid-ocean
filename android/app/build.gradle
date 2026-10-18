@@ -8,7 +8,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Snapshot builds (GitHub Actions) pass a growing number so a newer snapshot installs over an older one.
-        versionCode (System.getenv('SNAP_CODE') ?: '1').toInteger()
+        versionCode Integer.parseInt(System.getenv('SNAP_CODE') ?: '1')
         versionName System.getenv('SNAP_NAME') ?: "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
