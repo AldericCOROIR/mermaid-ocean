@@ -1,0 +1,50 @@
+# Press "Run workflow" (Actions tab → Snapshot APK) to freeze the current game into an Android app.
+# The APK lands on the Releases page; it never updates itself, the web page stays the latest version.
+name: Snapshot APK
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: 'Short note for this snapshot (optional)'
+        required: false
+        default: ''
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - run: npm ci --no-audit --no-fund
+      - name: Offline French speech model (packed into the APK)
+        run: |
+          curl -fsSL -o /tmp/vosk.zip https://alphacephei.com/vosk/models/vosk-model-small-fr-0.22.zip
+          unzip -q /tmp/vosk.zip -d /tmp/vosk
+          mkdir -p android/app/src/main/assets/vosk-fr
+          cp -r /tmp/vosk/vosk-model-small-fr-0.22/* android/app/src/main/assets/vosk-fr/
+          printf 'vosk-model-small-fr-0.22' > android/app/src/main/assets/vosk-fr/uuid
+      - run: npm run sync:android
+      - name: Build APK
+        working-directory: android
+        env:
+          SNAP_CODE: ${{ github.run_number }}
+          SNAP_NAME: ${{ github.run_number }}
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - name: Publish snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          day=$(date -u +%Y-%m-%d)
+          tag="snapshot-${day}-${{ github.run_number }}"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "mermaid-ocean-${day}.apk"
+          gh release create "$tag" "mermaid-ocean-${day}.apk" \
+            --title "Mermaid Ocean snapshot ${day} (#${{ github.run_number }})" \
+            --notes "Frozen copy of the game from commit ${GITHUB_SHA::7}. ${{ inputs.note }} Download the .apk on the phone, open it and allow installing. It plays offline and never updates itself."

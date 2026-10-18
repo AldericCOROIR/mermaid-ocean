@@ -7,8 +7,9 @@ android {
         applicationId "com.mermaidocean.game"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Snapshot builds (GitHub Actions) pass a growing number so a newer snapshot installs over an older one.
+        versionCode (System.getenv('SNAP_CODE') ?: '1').toInteger()
+        versionName System.getenv('SNAP_NAME') ?: "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,7 +17,20 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // One fixed signing key (kept in the repo; it only signs this family app), so every snapshot
+    // APK can be installed over the previous one and keeps the saved progress.
+    signingConfigs {
+        snapshot {
+            storeFile file('snapshot.keystore')
+            storePassword 'mermaid-snapshot'
+            keyAlias 'snapshot'
+            keyPassword 'mermaid-snapshot'
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.snapshot
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
