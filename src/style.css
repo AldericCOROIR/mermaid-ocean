@@ -89,6 +89,8 @@ button { font-family: inherit; color: var(--ink); cursor: pointer; }
 .card.locked { filter: grayscale(1) brightness(.6); opacity: .5; border-color: #ccc; }
 .row { display: flex; align-items: center; gap: 14px; margin: 12px auto; max-width: 420px; font-size: 30px; }
 .chip { flex: 1; font-size: 20px; padding: 10px 16px; border-radius: 999px; border: 3px solid #ffd1ec; background: #fff; }
+.chip:disabled { opacity: .65; cursor: wait; }
+.offlineStatus { min-height: 1.3em; margin: -6px auto 4px; max-width: 420px; text-align: center; font-size: 15px; }
 #wardrobe { left: 55%; right: 2%; top: 5%; bottom: 5%; inset: 5% 2% 5% 55%; background: rgba(255, 249, 240, .94); }
 #wardrobeHint { text-align: center; margin: 0 0 10px; font-size: 15px; }
 .dressGroup { margin: 8px 0 14px; }

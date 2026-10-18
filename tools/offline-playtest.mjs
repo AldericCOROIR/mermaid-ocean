@@ -15,11 +15,15 @@ await page.waitForFunction(() => !!window.__game, null, { timeout: 180000 });
 console.log('game initialized');
 await page.locator('#btnStart').click({ force: true });
 console.log('game started');
-// Production registers on HTTPS; localhost is a secure context for this test.
-await page.evaluate(() => navigator.serviceWorker.register('./sw.js'));
-await page.evaluate(() => navigator.serviceWorker.ready);
-console.log('service worker ready');
-await page.waitForFunction(async () => (await caches.keys()).some(k => k.startsWith('mermaid-')), null, { timeout: 180000 });
+await page.locator('#btnMenu').click({ force: true });
+await page.locator('#optOffline').click({ force: true });
+await page.waitForFunction(() => document.getElementById('offlineStatus').textContent.includes('sans internet'), null, { timeout: 300000 });
+console.log('offline download button confirmed complete');
+const offlineCache = await page.evaluate(async () => {
+  const key = (await caches.keys()).find(k => k.startsWith('mermaid-'));
+  return key ? (await (await caches.open(key)).keys()).length : 0;
+});
+if (offlineCache < 1600) throw new Error(`Only ${offlineCache} offline files cached`);
 const micHidden = await page.locator('#btnMic').isHidden();
 await context.setOffline(true);
 console.log('network disabled');
@@ -27,6 +31,10 @@ await page.reload({ timeout: 180000 });
 console.log('offline page loaded');
 await page.waitForFunction(() => !!window.__game, null, { timeout: 180000 });
 await page.locator('#btnStart').click({ force: true });
+await page.locator('#btnMenu').click({ force: true });
+await page.locator('#optOffline').click({ force: true });
+await page.waitForFunction(() => !document.getElementById('optOffline').disabled && document.getElementById('offlineStatus').textContent.includes('sans internet'), null, { timeout: 300000 });
+console.log('offline cache verified again without network');
 const offlineClip = await page.evaluate(async () => {
   const { VOICE_INDEX } = await import('./src/voice-index.js');
   const paths = Object.values(VOICE_INDEX);
@@ -50,6 +58,6 @@ const fallback = await page.evaluate(async () => {
   try { initAudio(); say('Bonjour, petite sirène.', 'queen'); return true; }
   finally { window.Audio = original; }
 });
-console.log(JSON.stringify({ micHidden, offlineClip, stageBefore, stageAfter, fallback, errors }));
+console.log(JSON.stringify({ micHidden, offlineCache, offlineClip, stageBefore, stageAfter, fallback, errors }));
 await browser.close();
 if (!micHidden || !offlineClip.ok || offlineClip.size < 1000 || offlineClip.islandSize < 1000 || offlineClip.voices < 60 || stageAfter !== 'pearls' || !fallback || errors.length) process.exit(1);

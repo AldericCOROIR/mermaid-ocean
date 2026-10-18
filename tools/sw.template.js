@@ -4,13 +4,42 @@ const VERSION = '__VERSION__';
 const FILES = __FILES__;
 const CACHE = 'mermaid-' + VERSION;
 
+async function saveFiles(cache, report) {
+  for (let i = 0; i < FILES.length; i += 12) {
+    const batch = FILES.slice(i, i + 12);
+    const missing = [];
+    for (const path of batch) if (!await cache.match(path)) missing.push(path);
+    if (missing.length) await cache.addAll(missing);
+    await report(Math.min(i + batch.length, FILES.length));
+  }
+}
+
 self.addEventListener('install', (e) => {
   // A bounded batch prevents mobile browsers from opening hundreds of media
   // requests at once while saving the full game for offline play.
   e.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    for (let i = 0; i < FILES.length; i += 12) await cache.addAll(FILES.slice(i, i + 12));
+    await saveFiles(cache, async (done) => {
+      if (done % 48 !== 0 && done !== FILES.length) return;
+      const clients = await self.clients.matchAll({ includeUncontrolled: true });
+      for (const client of clients) client.postMessage({ type: 'OFFLINE_PROGRESS', done, total: FILES.length });
+    });
     await self.skipWaiting();
+  })());
+});
+
+self.addEventListener('message', (e) => {
+  if (e.data?.type !== 'SAVE_OFFLINE' || !e.ports?.[0]) return;
+  const port = e.ports[0];
+  const post = (message) => { try { port.postMessage(message); } catch { /* page closed */ } };
+  e.waitUntil((async () => {
+    try {
+      const cache = await caches.open(CACHE);
+      await saveFiles(cache, (done) => post({ type: 'OFFLINE_PROGRESS', done, total: FILES.length }));
+      post({ type: 'OFFLINE_DONE' });
+    } catch (error) {
+      post({ type: 'OFFLINE_ERROR', error: String(error) });
+    }
   })());
 });
 

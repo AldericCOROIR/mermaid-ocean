@@ -22,6 +22,7 @@ import { PAINT_VIEWS } from './paintviews.js';
 import { setLang, getLang, t } from './i18n.js';
 import { initAudio, setSound, setVoiceMode, sfx } from './audio.js';
 import { VoiceInput } from './voice-input.js';
+import { saveGameOffline } from './offline.js';
 
 const params = new URLSearchParams(location.search);
 const SHOT = params.get('shot');
@@ -199,6 +200,24 @@ $('optVoiceMode').onclick = () => {
 };
 $('optLang').onclick = () => { settings.lang = getLang() === 'en' ? 'fr' : 'en'; setLang(settings.lang); save.write(); ui.renderMenu(); ui.applyTitle(); story.refreshQuest(); };
 $('optQuality').onclick = () => { settings.quality = { high: 'medium', medium: 'low', low: 'high' }[settings.quality]; settings.qualityManual = true; applyQuality(); save.write(); ui.renderMenu(); };
+$('optOffline').onclick = async () => {
+  const button = $('optOffline');
+  const status = $('offlineStatus');
+  button.disabled = true;
+  status.textContent = t('offlineStarting');
+  ui.toast(t('offlineStarting'));
+  try {
+    await saveGameOffline((fraction) => {
+      status.textContent = t('offlineProgress', { percent: Math.round(fraction * 100) });
+    });
+    status.textContent = t('offlineReady');
+    ui.toast(t('offlineReady'));
+  } catch (error) {
+    console.warn('Offline save failed:', error);
+    status.textContent = t('offlineFailed');
+    ui.toast(t('offlineFailed'));
+  } finally { button.disabled = false; }
+};
 $('optReload').onclick = async () => {
   $('optReload').disabled = true;
   ui.toast(t('updating'));
