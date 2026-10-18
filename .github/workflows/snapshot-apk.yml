@@ -22,7 +22,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
       - run: npm ci --no-audit --no-fund
       - name: Offline French speech model (packed into the APK)
         run: |
