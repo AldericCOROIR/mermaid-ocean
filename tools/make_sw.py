@@ -13,7 +13,10 @@ for r in ROOTS:
 files.sort()
 h = hashlib.sha1()
 for f in files:
-    h.update(f.encode()); h.update(open(f, 'rb').read())
+    # Git checks text files out as CRLF on Windows and LF in CI. The version
+    # identifies the same published bytes on both systems after Git normalizes
+    # them, so normalize line endings in the digest as well.
+    h.update(f.encode()); h.update(open(f, 'rb').read().replace(b'\r\n', b'\n'))
 version = h.hexdigest()[:12]
 tpl = open('tools/sw.template.js').read()
 open('sw.js', 'w').write(tpl.replace('__VERSION__', version).replace('__FILES__', json.dumps(['./'] + files, indent=1)))
